@@ -32,11 +32,19 @@ jobs:
           echo "NAVER_CLIENT_ID=${{ secrets.NAVER_CLIENT_ID }}" >> .env
           echo "NAVER_CLIENT_SECRET=${{ secrets.NAVER_CLIENT_SECRET }}" >> .env
           echo "KRX_API_KEY=${{ secrets.KRX_API_KEY }}" >> .env
-          echo "FIREBASE_SERVICE_ACCOUNT_JSON=${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}" >> .env
 
       - name: Deploy to Firebase
-        uses: w9jds/firebase-action@v2.2.0
-        with:
-          args: deploy
-        env:
-          GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -z "${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}" ]; then
+            echo "=========================================================================="
+            echo "❌ ERROR: FIREBASE_SERVICE_ACCOUNT_JSON secret is not set in GitHub!"
+            echo "Please register the service account JSON key as a GitHub Secret."
+            echo "Path: Repository Settings -> Secrets and variables -> Actions -> New repository secret"
+            echo "Name: FIREBASE_SERVICE_ACCOUNT_JSON"
+            echo "=========================================================================="
+            exit 1
+          fi
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}' > service-account.json
+          export GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/service-account.json
+          npx firebase-tools deploy --non-interactive
+
