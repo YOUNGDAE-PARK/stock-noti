@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 
 import { downloadDbFromStorage } from './storage_sync.js';
 import { getAbsoluteDbPath } from '../utils/paths.js';
+import { initializeSchema, seedDefaultAssets } from './schema.js';
 
 dotenv.config();
 
@@ -41,6 +42,19 @@ export async function getDb() {
 
   // Enable foreign key support
   await dbInstance.run('PRAGMA foreign_keys = ON');
+
+  // Dynamic schema initialization & seeding
+  try {
+    await dbInstance.get('SELECT 1 FROM portfolio_asset LIMIT 1');
+  } catch (err) {
+    if (err.message.includes('no such table')) {
+      console.log('[DB Init] "portfolio_asset" table not found. Auto-initializing schema and defaults...');
+      await initializeSchema(dbInstance);
+      await seedDefaultAssets(dbInstance);
+    } else {
+      throw err;
+    }
+  }
 
   return dbInstance;
 }

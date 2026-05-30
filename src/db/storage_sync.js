@@ -10,7 +10,7 @@ const bucketName = 'stock-f2ee7.firebasestorage.app';
 
 let storageBucket = null;
 
-// Initialize Firebase Admin if credentials are provided
+// Initialize Firebase Admin
 const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 if (serviceAccountJson) {
   try {
@@ -26,20 +26,19 @@ if (serviceAccountJson) {
   } catch (err) {
     console.error('[Storage Sync] Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON:', err.message);
   }
-} else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+} else {
   try {
+    // Attempt default initialization (Application Default Credentials in GCP)
     if (!admin.apps.length) {
       admin.initializeApp({
         storageBucket: bucketName
       });
     }
     storageBucket = admin.storage().bucket();
-    console.log('[Storage Sync] Firebase Admin successfully initialized using GOOGLE_APPLICATION_CREDENTIALS.');
+    console.log('[Storage Sync] Firebase Admin successfully initialized using Application Default Credentials (ADC).');
   } catch (err) {
-    console.error('[Storage Sync] Failed to initialize Firebase Admin with default credentials:', err.message);
+    console.log('[Storage Sync] Firebase credentials not found. Operating in local-only offline mode.');
   }
-} else {
-  console.log('[Storage Sync] Firebase credentials not found. Operating in local-only offline mode.');
 }
 
 /**
