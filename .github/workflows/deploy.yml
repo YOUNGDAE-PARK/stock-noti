@@ -9,6 +9,9 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: write
+
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
@@ -61,5 +64,21 @@ jobs:
           else
             echo "### 🎉 Firebase Deployment Succeeded!" >> $GITHUB_STEP_SUMMARY
           fi
+
+      - name: Push Logs to git branch on failure
+        if: failure()
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b deploy-logs || git checkout deploy-logs
+          if [ -f deploy.log ]; then
+            cp deploy.log deploy-failed.log
+            git add deploy-failed.log
+            git commit -m "Chore: update deployment failure logs"
+            git push origin deploy-logs --force
+          else
+            echo "deploy.log not found."
+          fi
+
 
 
