@@ -16,7 +16,7 @@ const isGeminiAvailable = apiKey && apiKey !== 'your_gemini_api_key_here' && api
  */
 async function fetchAndPopulateHistory(db, asset) {
   try {
-    const url = `https://fchart.stock.naver.com/sise.nhn?symbol=${asset.ticker}&timeframe=day&count=30&requestType=0`;
+    const url = `https://fchart.stock.naver.com/sise.nhn?symbol=${asset.ticker}&timeframe=day&count=120&requestType=0`;
     const response = await axios.get(url, { responseType: 'text', timeout: 5000 });
     const xmlContent = response.data;
     
@@ -138,7 +138,7 @@ export async function runInstantAnalysis() {
        FROM market_snapshot_daily 
        WHERE ticker = ? 
        ORDER BY date DESC 
-       LIMIT 20`,
+       LIMIT 120`,
       [asset.ticker]
     );
 
@@ -153,7 +153,9 @@ export async function runInstantAnalysis() {
 
     // Averages
     const avg5 = snapshots.slice(0, 5).reduce((sum, s) => sum + s.close_price, 0) / Math.min(5, snapshots.length);
-    const avg20 = snapshots.reduce((sum, s) => sum + s.close_price, 0) / snapshots.length;
+    const avg20 = snapshots.slice(0, 20).reduce((sum, s) => sum + s.close_price, 0) / Math.min(20, snapshots.length);
+    const avg60 = snapshots.slice(0, 60).reduce((sum, s) => sum + s.close_price, 0) / Math.min(60, snapshots.length);
+    const avg120 = snapshots.reduce((sum, s) => sum + s.close_price, 0) / snapshots.length;
 
     // Price returns
     const t5Close = snapshots.length > 5 ? snapshots[5].close_price : snapshots[snapshots.length - 1].close_price;
@@ -272,7 +274,14 @@ ${eventsSummary}
 
     // E. Calibrated Rule Safeguards
     const disparity20 = avg20 > 0 ? (currentPrice / avg20) : 1.0;
-    if (decisionSignal === '추매검토') {
+    
+    // Macro Crisis Invariant: If a major index tracking ETF breaks its 120MA trendline
+    const isIndexAsset = asset.name.includes('S&P500') || asset.name.includes('코스피') || asset.name.includes('KODEX 200') || asset.name.includes('나스닥100');
+    if (isIndexAsset && currentPrice < avg120) {
+      decisionSignal = '매도검토';
+      reasoning = `🚨 [매크로 위기 경보] 국내/외 주요 지수 ETF의 장기 추세 지지선인 120일선(${Math.round(avg120).toLocaleString()}원)이 완전히 하향 돌파되었습니다. 이는 2000년 닷컴 버블 붕괴 및 2008년 리먼 브라더스 금융위기 초입의 지수 붕괴 시그널과 유사한 위기 징후이므로, 포트폴리오 안전성 확보를 위한 현금 비중 확대 조치를 긴급 추천합니다.`;
+    } 
+    else if (decisionSignal === '추매검토') {
       if (disparity20 >= 1.15) {
         decisionSignal = '보유';
         reasoning = `${reasoning} (⚠️ 이격도 ${Math.round(disparity20 * 100)}%로 과열 상태임에 따라 추격 매수 방지 규칙에 의해 매매 보류)`;
@@ -306,11 +315,17 @@ ${eventsSummary}
   const analysisResults = rawResults.filter(r => r !== null);
 
   // 6. Generate Markdown Report Content
+  const hasMacroCrisis = analysisResults.some(r => r.reasoning && r.reasoning.includes('매크로 위기 경보'));
   const hasFullSell = analysisResults.some(r => r.decisionSignal === '매도검토');
   const hasReduce = analysisResults.some(r => r.decisionSignal === '비중축소');
 
   let report = `# ⚡ Stock-Noti 실시간 즉시 분석 리포트 (${dateStr} ${timeStr})\n\n`;
-  if (hasFullSell) {
+  if (hasMacroCrisis) {
+    report += `> 🚨🚨🚨 **[시스템 매크로 위기 비상경보]** 🚨🚨🚨\n`;
+    report += `> **국내/외 주요 지수 ETF 중 장기 추세선인 120일 이동평균선(120MA)을 하향 돌파한 자산이 감지되었습니다.**\n`;
+    report += `> **이는 2000년 닷컴 버블 붕괴 및 2008년 리먼 브라더스 금융위기 수준의 대폭락 장세 초입의 지수 붕괴 시그널과 매우 유사합니다.**\n`;
+    report += `> **추가적인 자산 손실 방어 및 자본 보호를 위해 해당 지수 및 포트폴리오 내 고위험 자산에 대해 신속히 현금 비중 확대를 단행할 것을 긴급 경고합니다.**\n\n`;
+  } else if (hasFullSell) {
     report += `> 🚨 **[초긴급 위기대응] 포트폴리오 내 전량 매도(100% 매도) 신호가 확정된 종목이 있습니다! 자본 보호를 위해 아래 가이드 및 추천 수량을 신속히 검토하십시오.**\n\n`;
   } else if (hasReduce) {
     report += `> ⚠️ **[리스크 관리 경고] 포트폴리오 내 비중 축소(50% 매도) 신호가 발생한 종목이 있습니다. 리스크 노출도 조절을 권장합니다.**\n\n`;
@@ -427,7 +442,9 @@ ${eventsSummary}
 
   // 8. Send Slack Message
   let slackTitle = `⚡ [실시간 즉시분석 리포트] 포트폴리오 현황 및 추이 분석 완료 (${dateStr} ${timeStr})`;
-  if (hasFullSell) {
+  if (hasMacroCrisis) {
+    slackTitle = `🚨🚨🚨 [초긴급 - 매크로 대폭락 경보] 실시간 즉시분석 리포트 (${dateStr} ${timeStr}) 🚨🚨🚨`;
+  } else if (hasFullSell) {
     slackTitle = `🚨🚨🚨 [초긴급 - 전량매도 발생] 실시간 즉시분석 리포트 (${dateStr} ${timeStr}) 🚨🚨🚨`;
   } else if (hasReduce) {
     slackTitle = `⚠️ [경고 - 비중축소 발생] 실시간 즉시분석 리포트 (${dateStr} ${timeStr})`;
