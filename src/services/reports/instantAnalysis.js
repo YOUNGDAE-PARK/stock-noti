@@ -270,6 +270,18 @@ ${eventsSummary}
       }
     }
 
+    // E. Calibrated Rule Safeguards
+    const disparity20 = avg20 > 0 ? (currentPrice / avg20) : 1.0;
+    if (decisionSignal === '추매검토') {
+      if (disparity20 >= 1.15) {
+        decisionSignal = '보유';
+        reasoning = `${reasoning} (⚠️ 이격도 ${Math.round(disparity20 * 100)}%로 과열 상태임에 따라 추격 매수 방지 규칙에 의해 매매 보류)`;
+      } else if (asset.holding_weight >= 20.0) {
+        decisionSignal = '보유';
+        reasoning = `${reasoning} (⚠️ 포트폴리오 비중 ${asset.holding_weight}%로 단일 비중 한도 20% 초과에 따라 분산 투자 리스크 관리 규칙에 의해 매매 보류)`;
+      }
+    }
+
     return {
       ticker: asset.ticker,
       name: asset.name,
