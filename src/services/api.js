@@ -9,7 +9,7 @@ import { sendSlackMessage } from './slack.js';
 import { runWeeklyBatch } from './weeklyBatch.js';
 import { uploadDbToStorage } from '../db/storage_sync.js';
 
-const app = express();
+export const app = express();
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
@@ -242,7 +242,7 @@ app.get('/api/search', async (req, res) => {
 
 // 6. Get report lists
 app.get('/api/reports', async (req, res) => {
-  const reportDir = './reports';
+  const reportDir = process.env.REPORTS_DIR || './reports';
   try {
     if (!fs.existsSync(reportDir)) {
       return res.json([]);
@@ -292,11 +292,12 @@ app.get('/api/reports', async (req, res) => {
 // 7. Get single report details (Markdown raw)
 app.get('/api/reports/:filename', (req, res) => {
   const { filename } = req.params;
-  const reportDir = './reports';
-  const filePath = path.join(reportDir, filename);
+  const reportDir = process.env.REPORTS_DIR || './reports';
+  const resolvedReportDir = path.resolve(reportDir);
+  const filePath = path.resolve(path.join(reportDir, filename));
 
   // Security check to prevent Directory Traversal
-  if (path.dirname(filePath) !== 'reports' && !filePath.startsWith('reports/')) {
+  if (!filePath.startsWith(resolvedReportDir)) {
     return res.status(403).json({ error: 'Access denied' });
   }
 

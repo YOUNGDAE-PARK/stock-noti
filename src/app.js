@@ -17,7 +17,7 @@ import { uploadDbToStorage } from './db/storage_sync.js';
 dotenv.config();
 
 // End of Day (EOD) Bulk Data Collection
-async function runEndOfDayCollection() {
+export async function runEndOfDayCollection() {
   console.log('\n======================================');
   console.log(`[EOD Collection] Starting market-close bulk download at ${new Date().toLocaleTimeString()}...`);
   console.log('======================================');

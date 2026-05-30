@@ -326,7 +326,7 @@ ${eventsSummary}
   report += `\n`;
 
   // 4. Save file
-  const reportDir = './reports';
+  const reportDir = process.env.REPORTS_DIR || './reports';
   if (!fs.existsSync(reportDir)) {
     fs.mkdirSync(reportDir, { recursive: true });
   }

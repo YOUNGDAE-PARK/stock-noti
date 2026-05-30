@@ -79,7 +79,7 @@ export async function runHourlyAnalysis(dateStr, isSimulation = false) {
   }
 
   // Save to reports folder
-  const reportDir = './reports';
+  const reportDir = process.env.REPORTS_DIR || './reports';
   if (!fs.existsSync(reportDir)) {
     fs.mkdirSync(reportDir, { recursive: true });
   }

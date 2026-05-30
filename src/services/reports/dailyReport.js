@@ -129,7 +129,7 @@ export async function generateDailyReport(dateStr) {
   report += `\n`;
 
   // 4. Save to file
-  const reportDir = './reports';
+  const reportDir = process.env.REPORTS_DIR || './reports';
   if (!fs.existsSync(reportDir)) {
     fs.mkdirSync(reportDir, { recursive: true });
   }
