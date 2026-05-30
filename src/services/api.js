@@ -9,6 +9,7 @@ import { sendSlackMessage } from './slack.js';
 import { runWeeklyBatch } from './weeklyBatch.js';
 import { uploadDbToStorage } from '../db/storage_sync.js';
 import { getReportsDir } from '../utils/paths.js';
+import { runInstantAnalysis } from './reports/instantAnalysis.js';
 
 export const app = express();
 app.use(express.json());
@@ -251,7 +252,7 @@ app.get('/api/reports', async (req, res) => {
 
     const files = fs.readdirSync(reportDir);
     const reportFiles = files
-      .filter(f => f.endsWith('.md') && (f.startsWith('daily_report_') || f.startsWith('hourly_noti_') || f.startsWith('simulation_report')))
+      .filter(f => f.endsWith('.md') && (f.startsWith('daily_report_') || f.startsWith('hourly_noti_') || f.startsWith('simulation_report') || f.startsWith('instant_report_')))
       .map(filename => {
         const filePath = path.join(reportDir, filename);
         const stats = fs.statSync(filePath);
@@ -259,6 +260,7 @@ app.get('/api/reports', async (req, res) => {
         let type = 'daily';
         if (filename.startsWith('hourly_noti_')) type = 'hourly';
         if (filename.startsWith('simulation_report')) type = 'backtest';
+        if (filename.startsWith('instant_report_')) type = 'instant';
 
         // Extract clean date
         let date = stats.mtime.toISOString().substring(0, 10);
@@ -271,6 +273,13 @@ app.get('/api/reports', async (req, res) => {
             const rawDate = match[1]; // yyyymmdd
             const time = match[2]; // hhmm
             date = `${rawDate.substring(0, 4)}-${rawDate.substring(4, 6)}-${rawDate.substring(6, 8)} ${time.substring(0, 2)}:${time.substring(2, 4)}`;
+          }
+        } else if (type === 'instant') {
+          const match = filename.match(/instant_report_(.*)_(.*)\.md/);
+          if (match) {
+            const rawDate = match[1]; // yyyymmdd
+            const time = match[2]; // hhmmss
+            date = `${rawDate.substring(0, 4)}-${rawDate.substring(4, 6)}-${rawDate.substring(6, 8)} ${time.substring(0, 2)}:${time.substring(2, 4)}:${time.substring(4, 6)}`;
           }
         }
 
@@ -469,6 +478,19 @@ app.post('/api/assets/sync-prices', async (req, res) => {
     await uploadDbToStorage();
 
     res.json({ success: true, message: 'Real-time prices and weights successfully synchronized.' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 13. Trigger Instant Analysis manually
+app.post('/api/analysis/run', async (req, res) => {
+  console.log('[API] Triggering Instant Portfolio Analysis manually...');
+  try {
+    const result = await runInstantAnalysis();
+    // Sync database file to Firebase Storage
+    await uploadDbToStorage();
+    res.json({ success: true, filename: result.filename, results: result.results });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

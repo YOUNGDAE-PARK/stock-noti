@@ -708,6 +708,7 @@
     .rt-daily { background-color: #dbeafe; color: #1e40af; }
     .rt-hourly { background-color: #fff3c4; color: #854d0e; }
     .rt-backtest { background-color: #f3e8ff; color: #6b21a8; }
+    .rt-instant { background-color: #ffd2d2; color: #991b1b; }
 
     .reports-main {
       background: white;
@@ -1079,7 +1080,10 @@
     <section id="view-portfolio" class="view active">
       <div class="view-title-container" style="margin-bottom: 1.5rem;">
         <h2 class="view-title"><i class="fa-solid fa-folder-open"></i>자산 관리</h2>
-        <div style="display: flex; gap: 0.8rem;">
+        <div style="display: flex; gap: 0.8rem; flex-wrap: wrap;">
+          <button class="btn" style="background: linear-gradient(135deg, #8a2be2, #4a00e0); color: white;" onclick="runInstantAnalysis()" id="btn-instant-analysis">
+            <i class="fa-solid fa-bolt"></i> 실시간 즉시 분석
+          </button>
           <button class="btn btn-secondary" onclick="syncPortfolioPrices()" id="btn-sync-prices">
             <i class="fa-solid fa-arrows-rotate"></i> 실시간 시세 동기화
           </button>
@@ -1365,6 +1369,39 @@
     }
 
     // 1. Get Assets and render
+    async function runInstantAnalysis() {
+      const btn = document.getElementById('btn-instant-analysis');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> 분석 중...';
+      
+      try {
+        const response = await fetch('/api/analysis/run', { method: 'POST' });
+        const resData = await response.json();
+        
+        if (response.ok && resData.success) {
+          showToast('실시간 포트폴리오 즉시 분석 및 알림 전송이 완료되었습니다.');
+          
+          // Switch to Reports view and load the report
+          switchView('reports');
+          
+          // Refresh reports list
+          await fetchReports();
+          
+          // Select the new report
+          if (resData.filename) {
+            viewReport(resData.filename);
+          }
+        } else {
+          showToast('분석 실패: ' + resData.error, true);
+        }
+      } catch (err) {
+        showToast('통신 오류: ' + err.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-bolt"></i> 실시간 즉시 분석';
+      }
+    }
+
     async function syncPortfolioPrices() {
       const btn = document.getElementById('btn-sync-prices');
       btn.disabled = true;
@@ -1918,6 +1955,9 @@
         } else if (report.type === 'backtest') {
           typeLabel = '시뮬레이션';
           typeClass = 'rt-backtest';
+        } else if (report.type === 'instant') {
+          typeLabel = '즉시 분석';
+          typeClass = 'rt-instant';
         }
 
         const sizeKb = (report.sizeBytes / 1024).toFixed(1);
