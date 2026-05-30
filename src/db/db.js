@@ -1,25 +1,13 @@
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
 import dotenv from 'dotenv';
 
 import { downloadDbFromStorage } from './storage_sync.js';
+import { getAbsoluteDbPath } from '../utils/paths.js';
 
 dotenv.config();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const dbPath = process.env.DATABASE_PATH || './data/stock_noti.db';
-const absoluteDbPath = path.resolve(dbPath);
-
-// Ensure directory exists
-const dbDir = path.dirname(absoluteDbPath);
-if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
-}
 
 let dbInstance = null;
 let dbDownloaded = false;
@@ -27,6 +15,14 @@ let dbDownloaded = false;
 export async function getDb() {
   if (dbInstance) {
     return dbInstance;
+  }
+
+  const absoluteDbPath = getAbsoluteDbPath();
+  
+  // Ensure directory exists at runtime
+  const dbDir = path.dirname(absoluteDbPath);
+  if (!fs.existsSync(dbDir)) {
+    fs.mkdirSync(dbDir, { recursive: true });
   }
 
   if (!dbDownloaded) {
@@ -48,3 +44,4 @@ export async function getDb() {
 
   return dbInstance;
 }
+

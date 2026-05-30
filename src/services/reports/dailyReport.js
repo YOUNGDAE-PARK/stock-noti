@@ -2,6 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import { getDb } from '../../db/db.js';
 import { sendSlackMarkdown } from '../slack.js';
+import { getReportsDir } from '../../utils/paths.js';
+
 
 export async function generateDailyReport(dateStr) {
   const db = await getDb();
@@ -129,7 +131,7 @@ export async function generateDailyReport(dateStr) {
   report += `\n`;
 
   // 4. Save to file
-  const reportDir = process.env.REPORTS_DIR || './reports';
+  const reportDir = getReportsDir();
   if (!fs.existsSync(reportDir)) {
     fs.mkdirSync(reportDir, { recursive: true });
   }

@@ -4,6 +4,7 @@ import { getDb } from '../db/db.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { sendSlackMarkdown } from './slack.js';
 import { uploadDbToStorage } from '../db/storage_sync.js';
+import { getReportsDir } from '../utils/paths.js';
 
 const apiKey = process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.replace(/[\r\n\s]/g, '') : null;
 const isGeminiAvailable = apiKey && apiKey !== 'your_gemini_api_key_here' && apiKey !== '';
@@ -326,7 +327,7 @@ ${eventsSummary}
   report += `\n`;
 
   // 4. Save file
-  const reportDir = process.env.REPORTS_DIR || './reports';
+  const reportDir = getReportsDir();
   if (!fs.existsSync(reportDir)) {
     fs.mkdirSync(reportDir, { recursive: true });
   }

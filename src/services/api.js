@@ -8,6 +8,7 @@ import { buildCorpDirectory } from '../db/corp_directory.js';
 import { sendSlackMessage } from './slack.js';
 import { runWeeklyBatch } from './weeklyBatch.js';
 import { uploadDbToStorage } from '../db/storage_sync.js';
+import { getReportsDir } from '../utils/paths.js';
 
 export const app = express();
 app.use(express.json());
@@ -242,7 +243,7 @@ app.get('/api/search', async (req, res) => {
 
 // 6. Get report lists
 app.get('/api/reports', async (req, res) => {
-  const reportDir = process.env.REPORTS_DIR || './reports';
+  const reportDir = getReportsDir();
   try {
     if (!fs.existsSync(reportDir)) {
       return res.json([]);
@@ -292,7 +293,7 @@ app.get('/api/reports', async (req, res) => {
 // 7. Get single report details (Markdown raw)
 app.get('/api/reports/:filename', (req, res) => {
   const { filename } = req.params;
-  const reportDir = process.env.REPORTS_DIR || './reports';
+  const reportDir = getReportsDir();
   const resolvedReportDir = path.resolve(reportDir);
   const filePath = path.resolve(path.join(reportDir, filename));
 

@@ -2,11 +2,10 @@ import admin from 'firebase-admin';
 import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
+import { getAbsoluteDbPath } from '../utils/paths.js';
 
 dotenv.config();
 
-const dbPath = process.env.DATABASE_PATH || './data/stock_noti.db';
-const absoluteDbPath = path.resolve(dbPath);
 const bucketName = 'stock-f2ee7.firebasestorage.app';
 
 let storageBucket = null;
@@ -52,6 +51,8 @@ export async function downloadDbFromStorage() {
     return false;
   }
 
+  const absoluteDbPath = getAbsoluteDbPath();
+
   try {
     const remoteFile = storageBucket.file('stock_noti.db');
     const [exists] = await remoteFile.exists();
@@ -86,6 +87,8 @@ export async function uploadDbToStorage() {
     return false;
   }
 
+  const absoluteDbPath = getAbsoluteDbPath();
+
   if (!fs.existsSync(absoluteDbPath)) {
     console.warn(`[Storage Sync] Local database file ${absoluteDbPath} does not exist. Skipping upload.`);
     return false;
@@ -107,3 +110,4 @@ export async function uploadDbToStorage() {
     return false;
   }
 }
+
