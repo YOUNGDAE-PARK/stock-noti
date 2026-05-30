@@ -109,7 +109,6 @@ export async function runInstantAnalysis() {
   }
 
   // 5. Build analysis results for each asset
-  const analysisResults = [];
   const now = new Date();
   const dateStr = now.toISOString().substring(0, 10);
   const timeStr = now.toTimeString().substring(0, 8);
@@ -132,7 +131,7 @@ export async function runInstantAnalysis() {
   date14DaysAgo.setDate(date14DaysAgo.getDate() - 14);
   const date14DaysAgoStr = date14DaysAgo.toISOString().substring(0, 10);
 
-  for (const asset of assets) {
+  const analysisPromises = assets.map(async (asset) => {
     // A. Query snapshots for trends
     const snapshots = await db.all(
       `SELECT close_price, date, change_pct, volume 
@@ -145,7 +144,7 @@ export async function runInstantAnalysis() {
 
     if (snapshots.length === 0) {
       console.warn(`- Skipping ${asset.name} (${asset.ticker}) due to missing market data.`);
-      continue;
+      return null;
     }
 
     const currentPrice = snapshots[0].close_price;
@@ -271,7 +270,7 @@ ${eventsSummary}
       }
     }
 
-    analysisResults.push({
+    return {
       ticker: asset.ticker,
       name: asset.name,
       assetType: asset.asset_type,
@@ -288,11 +287,23 @@ ${eventsSummary}
       recentEventsCount: recentEvents.length,
       decisionSignal,
       reasoning
-    });
-  }
+    };
+  });
+
+  const rawResults = await Promise.all(analysisPromises);
+  const analysisResults = rawResults.filter(r => r !== null);
 
   // 6. Generate Markdown Report Content
+  const hasFullSell = analysisResults.some(r => r.decisionSignal === '매도검토');
+  const hasReduce = analysisResults.some(r => r.decisionSignal === '비중축소');
+
   let report = `# ⚡ Stock-Noti 실시간 즉시 분석 리포트 (${dateStr} ${timeStr})\n\n`;
+  if (hasFullSell) {
+    report += `> 🚨 **[초긴급 위기대응] 포트폴리오 내 전량 매도(100% 매도) 신호가 확정된 종목이 있습니다! 자본 보호를 위해 아래 가이드 및 추천 수량을 신속히 검토하십시오.**\n\n`;
+  } else if (hasReduce) {
+    report += `> ⚠️ **[리스크 관리 경고] 포트폴리오 내 비중 축소(50% 매도) 신호가 발생한 종목이 있습니다. 리스크 노출도 조절을 권장합니다.**\n\n`;
+  }
+  
   report += `본 보고서는 사용자의 요청에 따라 현재 시점의 포트폴리오 보유 종목들의 **실시간 시세(Naver)**, **이동평균선 추이(5일/20일)**, **최근 14일 주요 공시/보도자료 이벤트**를 결합하여 작성된 즉시 투자 분석 보고서입니다.\n\n`;
 
   report += `## 1. 포트폴리오 즉시 대응 가이드 (Executive Action Table)\n`;
@@ -360,7 +371,7 @@ ${eventsSummary}
   report += `* **사후 결과 (1년 후: 2001년 3월)**\n`;
   report += `  - 주가 **$13.63**까지 폭락 (**고점 대비 -82.9%** 손실 발생)\n\n`;
   report += `### 📊 시뮬레이션 방어 성과 요약:\n`;
-  report += `* **아무 조치 없이 존버한 경우 (Strategy A)**: 누적 손익 **`-82.9%`** 대폭락\n`;
+  report += `* **아무 조치 없이 존버한 경우 (Strategy A)**: 누적 손익 **\`-82.9%\`** 대폭락\n`;
   report += `* **AI 메커니즘을 적용한 경우 (Strategy B)**:\n`;
   report += `  - $80.00에 50% 분량 매도 + $72.00에 잔여 50% 분량 전량 매도 완료 (가중 평균 탈출 단가: **$76.00**)\n`;
   report += `  - **최종 손실 회피율 (방어율)**: **\`+77.9%\`** (고점 부근에서 자산의 77.9%를 성공적으로 현금 보존 완료)\n\n`;
@@ -403,7 +414,14 @@ ${eventsSummary}
   console.log(`[Instant Analysis] Report successfully saved to ${filePath}`);
 
   // 8. Send Slack Message
-  await sendSlackMarkdown(`⚡ [실시간 즉시분석 리포트] 포트폴리오 현황 및 추이 분석 완료 (${dateStr} ${timeStr})`, report);
+  let slackTitle = `⚡ [실시간 즉시분석 리포트] 포트폴리오 현황 및 추이 분석 완료 (${dateStr} ${timeStr})`;
+  if (hasFullSell) {
+    slackTitle = `🚨🚨🚨 [초긴급 - 전량매도 발생] 실시간 즉시분석 리포트 (${dateStr} ${timeStr}) 🚨🚨🚨`;
+  } else if (hasReduce) {
+    slackTitle = `⚠️ [경고 - 비중축소 발생] 실시간 즉시분석 리포트 (${dateStr} ${timeStr})`;
+  }
+
+  await sendSlackMarkdown(slackTitle, report);
 
   return { filename, filePath, results: analysisResults };
 }

@@ -76,6 +76,19 @@ function convertMarkdownTables(markdown) {
         
         output += `• *${name}* [${type}]:\n  - 이전 주소: \`${oldUrl}\`\n  - 복구 주소: <${cleanNewUrl}|이동>\n  - 복구 사유: ${reason}\n`;
       }
+      // Table 3: 즉시 분석 대응 가이드 (구체적 거래 추천 수량 테이블)
+      else if (headers.includes('구체적 거래 추천 수량') || headers.includes('추천 의사결정')) {
+        const name = cells[0].replace(/\*\*/g, '');
+        const ticker = cells[1] ? cells[1].replace(/`/g, '') : '';
+        const price = cells[2] || '';
+        const change = cells[3] || '';
+        const qty = cells[4] || '';
+        const weight = cells[5] || '';
+        const signal = cells[6] ? cells[6].replace(/\*\*/g, '') : '';
+        const recommendation = cells[7] ? cells[7].replace(/\*\*/g, '') : '';
+
+        output += `• *${name}* (\`${ticker}\`): 현재가 ${price} (${change}) | 보유: ${qty} (비중 ${weight})\n  └ *추천 기조:* ${signal}\n  └ *추천 거래 수량:* ${recommendation}\n`;
+      }
       // Generic Table fallback
       else {
         let rowStr = '• ';
