@@ -42,3 +42,6 @@ Thumbs.db
 
 # Tool specific
 .antigravitycli/
+.firebase/
+firebase-debug.log
+firebase-debug-*.log

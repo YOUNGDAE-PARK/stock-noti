@@ -120,6 +120,14 @@ async function startApp() {
   console.log('\nStock-Noti Daemon is active and running in background.');
 }
 
-startApp().catch(err => {
-  console.error('Application boot failed:', err.message);
-});
+// Only boot the local app server & cron daemon if run directly (e.g. node src/app.js)
+const isMain = process.argv[1] && (
+  process.argv[1].endsWith('app.js') || 
+  process.argv[1].endsWith('app')
+);
+
+if (isMain) {
+  startApp().catch(err => {
+    console.error('Application boot failed:', err.message);
+  });
+}
