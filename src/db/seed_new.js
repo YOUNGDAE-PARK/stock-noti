@@ -1,0 +1,268 @@
+import { getDb } from './db.js';
+
+const initialAssets = [
+  {
+    asset_type: 'etf',
+    ticker: '0167A0',
+    name: 'SOL AI반도체TOP2플러스',
+    market: 'ETF',
+    holding_qty: 8394.0,
+    avg_price: 10000.0,
+    holding_weight: 5.88,
+    investment_thesis: '국내 AI 반도체 핵심 기업(삼성전자, SK하이닉스) 집중 투자 수혜',
+    risk_keywords: 'HBM 공급 과잉 우려, 메모리 사이클 하강, 미국 규제',
+    watch_level: 'normal',
+    is_active: 1
+  },
+  {
+    asset_type: 'etf',
+    ticker: '0177N0',
+    name: 'KODEX 삼성전자SK하이닉스채권혼합50',
+    market: 'ETF',
+    holding_qty: 6338.0,
+    avg_price: 10000.0,
+    holding_weight: 5.88,
+    investment_thesis: '반도체 성장성 확보와 채권 혼합을 통한 포트폴리오 하방 경직성 확보',
+    risk_keywords: '국채 금리 변동성, 한국 매크로 리스크, HBM 성장 둔화',
+    watch_level: 'normal',
+    is_active: 1
+  },
+  {
+    asset_type: 'etf',
+    ticker: '469150',
+    name: 'ACE AI반도체TOP3+',
+    market: 'ETF',
+    holding_qty: 2516.0,
+    avg_price: 10000.0,
+    holding_weight: 5.88,
+    investment_thesis: '국내 대표 AI 메모리 반도체 하드웨어 생태계 선도 기업 집중 편입',
+    risk_keywords: '글로벌 반도체 다운사이클, 미-중 무역 분쟁, HBM 단가 인하',
+    watch_level: 'normal',
+    is_active: 1
+  },
+  {
+    asset_type: 'etf',
+    ticker: '0183J0',
+    name: 'TIGER 미국우주테크',
+    market: 'ETF',
+    holding_qty: 2281.0,
+    avg_price: 10000.0,
+    holding_weight: 5.88,
+    investment_thesis: '글로벌 뉴스페이스 민간 항공우주 생태계 포착 및 스페이스X 상장 모멘텀',
+    risk_keywords: '스페이스X 상장 지연, 미국 고금리 지속, 우주 테크 밸류에이션 버블',
+    watch_level: 'normal',
+    is_active: 1
+  },
+  {
+    asset_type: 'etf',
+    ticker: '445290',
+    name: 'KODEX 로봇액티브',
+    market: 'ETF',
+    holding_qty: 1016.0,
+    avg_price: 10000.0,
+    holding_weight: 5.88,
+    investment_thesis: '생산 가능 인구 감소에 따른 협동/산업용 로봇 및 물류 자동화 상용화 수혜',
+    risk_keywords: '기술 고도화 지연, 주요국 설비 투자 둔화, 핵심 부품 공급망 불안',
+    watch_level: 'normal',
+    is_active: 1
+  },
+  {
+    asset_type: 'etf',
+    ticker: '0020H0',
+    name: 'KoAct 글로벌양자컴퓨팅액티브',
+    market: 'ETF',
+    holding_qty: 634.0,
+    avg_price: 10000.0,
+    holding_weight: 5.88,
+    investment_thesis: '글로벌 양자컴퓨터 원천 기술 보유사 및 하드웨어 인프라 파이프라인 수혜',
+    risk_keywords: '양자 기술 상용화 지연 우려, 양자 테마 버블 붕괴, 연구개발비 증대',
+    watch_level: 'normal',
+    is_active: 1
+  },
+  {
+    asset_type: 'etf',
+    ticker: '0023A0',
+    name: 'SOL 미국양자컴퓨팅TOP10',
+    market: 'ETF',
+    holding_qty: 613.0,
+    avg_price: 10000.0,
+    holding_weight: 5.88,
+    investment_thesis: '미국 시장 내 양자 하이브리드 클라우드 선도 10대 테크 기업 분산 투자',
+    risk_keywords: '양자 우위 도달 지연, R&D 지출 압박, 미국 빅테크 변동성',
+    watch_level: 'normal',
+    is_active: 1
+  },
+  {
+    asset_type: 'etf',
+    ticker: '483340',
+    name: 'ACE 구글밸류체인액티브',
+    market: 'ETF',
+    holding_qty: 578.0,
+    avg_price: 10000.0,
+    holding_weight: 5.88,
+    investment_thesis: '알파벳(구글) 중심의 AI 소프트웨어 생태계 장악력 및 인프라 파트너 수혜',
+    risk_keywords: '반독점 소송 리스크, 검색 광고 성장 둔화, AI 추론 인프라 비용 부담',
+    watch_level: 'normal',
+    is_active: 1
+  },
+  {
+    asset_type: 'etf',
+    ticker: '360750',
+    name: 'TIGER 미국S&P500',
+    market: 'ETF',
+    holding_qty: 402.0,
+    avg_price: 10000.0,
+    holding_weight: 5.88,
+    investment_thesis: '미국 초우량 500대 기업 장기 지수 상승 성과 추종',
+    risk_keywords: '미국 경기 침체, 환율 변동 리스크, 미국 연준 긴축 고도화',
+    watch_level: 'normal',
+    is_active: 1
+  },
+  {
+    asset_type: 'etf',
+    ticker: '237350',
+    name: 'KODEX 코스피100',
+    market: 'ETF',
+    holding_qty: 401.0,
+    avg_price: 10000.0,
+    holding_weight: 5.88,
+    investment_thesis: '국내 거래소 시총 최상위 기술/금융/제조 100개 기업 패시브 투자',
+    risk_keywords: '원화 약세 흐름, 수출 경기 둔화, 한국 증시 저평가 디스카운트',
+    watch_level: 'normal',
+    is_active: 1
+  },
+  {
+    asset_type: 'etf',
+    ticker: '069500',
+    name: 'KODEX 200',
+    market: 'ETF',
+    holding_qty: 319.0,
+    avg_price: 10000.0,
+    holding_weight: 5.88,
+    investment_thesis: '대한민국 주식시장 종합 지표 추종 및 우량주 중심 고유동 포트폴리오 유지',
+    risk_keywords: '대외 매크로 경기 하강, 외국인 자금 이탈, 지정학적 리스크',
+    watch_level: 'normal',
+    is_active: 1
+  },
+  {
+    asset_type: 'stock',
+    ticker: '005930',
+    name: '삼성전자',
+    market: 'KOSPI',
+    holding_qty: 308.0,
+    avg_price: 70000.0,
+    holding_weight: 5.88,
+    investment_thesis: '글로벌 메모리 반도체 1위 지배력 및 HBM 공급량 확대, 파운드리 턴어라운드',
+    risk_keywords: 'DRAM 가격 변동, HBM 공급 수율 저조, 모바일 수요 정체',
+    watch_level: 'normal',
+    is_active: 1
+  },
+  {
+    asset_type: 'etf',
+    ticker: '0194T0',
+    name: 'ACE SK하이닉스단일종목레버리지',
+    market: 'ETF',
+    holding_qty: 287.0,
+    avg_price: 10000.0,
+    holding_weight: 5.88,
+    investment_thesis: 'SK하이닉스의 AI HBM 기술 우위에 기반한 공격적 상방 레버리지 성과 획득',
+    risk_keywords: '음의 복리 효과, HBM 단기 병목 해소 우려, 경쟁사 진입 격화',
+    watch_level: 'normal',
+    is_active: 1
+  },
+  {
+    asset_type: 'etf',
+    ticker: '367380',
+    name: 'ACE 미국나스닥100',
+    market: 'ETF',
+    holding_qty: 54.0,
+    avg_price: 10000.0,
+    holding_weight: 5.88,
+    investment_thesis: '미국 나스닥 상위 100개 혁신 기술/바이오/소프트웨어 기업 패시브 장기 복리 성장',
+    risk_keywords: '빅테크 고평가 부담, 금리 등락 리스크, 미국 규제 강화',
+    watch_level: 'normal',
+    is_active: 1
+  },
+  {
+    asset_type: 'stock',
+    ticker: '475960',
+    name: '토모큐브',
+    market: 'KOSDAQ',
+    holding_qty: 30.0,
+    avg_price: 55000.0,
+    holding_weight: 5.88,
+    investment_thesis: 'AI 기반 홀로토모그래피(HT) 장비 및 오가노이드/반도체 계측 신사업 확장',
+    risk_keywords: '바이오 연구 예산 삭감, 신제품 HT-X1 출시 지연, 흑자 전환 지연',
+    watch_level: 'normal',
+    is_active: 1
+  },
+  {
+    asset_type: 'stock',
+    ticker: '064760',
+    name: '티씨케이',
+    market: 'KOSDAQ',
+    holding_qty: 20.0,
+    avg_price: 300000.0,
+    holding_weight: 5.88,
+    investment_thesis: '고순도 흑연 부품 및 Solid SiC 링의 독보적 지배력, 적극적인 주주 가치 제고(밸류업)',
+    risk_keywords: '특허 만료 리스크, 반도체 공정 가동률 하락, 경쟁사 SiC 링 진입',
+    watch_level: 'normal',
+    is_active: 1
+  },
+  {
+    asset_type: 'stock',
+    ticker: '012330',
+    name: '현대모비스',
+    market: 'KOSPI',
+    holding_qty: 2.0,
+    avg_price: 430000.0,
+    holding_weight: 5.88,
+    investment_thesis: '전동화 사업 흑자 전환, 글로벌 완성차향 핵심 부품 수주 확대 및 미래 로보틱스/자율주행 R&D 성과',
+    risk_keywords: '전기차 캐즘 장기화, 글로벌 자동차 수요 둔화, 완성차 단가 압박',
+    watch_level: 'normal',
+    is_active: 1
+  }
+];
+
+async function seedDb() {
+  console.log('Seeding new custom portfolio assets...');
+  const db = await getDb();
+
+  // Clear previous portfolio data
+  await db.run('DELETE FROM portfolio_asset');
+
+  for (const asset of initialAssets) {
+    try {
+      await db.run(
+        `INSERT INTO portfolio_asset (
+          asset_type, ticker, name, market, holding_weight, avg_price, 
+          holding_qty, investment_thesis, risk_keywords, watch_level, is_active
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          asset.asset_type,
+          asset.ticker,
+          asset.name,
+          asset.market,
+          asset.holding_weight,
+          asset.avg_price,
+          asset.holding_qty,
+          asset.investment_thesis,
+          asset.risk_keywords,
+          asset.watch_level,
+          asset.is_active
+        ]
+      );
+      console.log(`- Seeded custom asset: ${asset.name} (${asset.ticker}) with Qty: ${asset.holding_qty}`);
+    } catch (err) {
+      console.error(`- Error seeding custom asset ${asset.name}:`, err.message);
+    }
+  }
+
+  console.log('Seeding custom database completed.');
+  process.exit(0);
+}
+
+seedDb().catch((err) => {
+  console.error('Error seeding database:', err);
+  process.exit(1);
+});

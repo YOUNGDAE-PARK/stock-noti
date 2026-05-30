@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+/jspm_packages/
+/web_modules/
+
+# Local env files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Databases
+/data/*.db
+/data/*.db-journal
+/data/*.db-shm
+/data/*.db-wal
+*.db
+
+# Generated Reports
+/reports/
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Editor directories and files
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Tool specific
+.antigravitycli/

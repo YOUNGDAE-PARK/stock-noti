@@ -1,0 +1,1967 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stock-Noti Premium Dashboard</title>
+  <!-- Modern Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Markdown Parser CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <style>
+    :root {
+      --bg-main: #f4f6fa;
+      --bg-card: #ffffff;
+      --navy-primary: #0a192f;
+      --navy-secondary: #172a45;
+      --accent-blue: #3066be;
+      --accent-light: #e2eafc;
+      --text-main: #2b2d42;
+      --text-muted: #8d99ae;
+      
+      /* Semantic colors */
+      --color-buy: #10b981; /* Emerald Green */
+      --color-buy-bg: #ecfdf5;
+      --color-sell: #ef4444; /* Crimson Red */
+      --color-sell-bg: #fef2f2;
+      --color-reduce: #f59e0b; /* Amber/Orange */
+      --color-reduce-bg: #fffbeb;
+      --color-hold: #3b82f6; /* Blue */
+      --color-hold-bg: #eff6ff;
+      --color-watch: #6b7280; /* Gray */
+      --color-watch-bg: #f3f4f6;
+      
+      --border-radius: 12px;
+      --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
+      --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+      --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', 'Noto Sans KR', sans-serif;
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Layout Header */
+    header {
+      background-color: var(--navy-primary);
+      color: white;
+      padding: 0.8rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.4rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #64ffda, #60efff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      cursor: pointer;
+    }
+
+    .brand i {
+      background: linear-gradient(135deg, #64ffda, #60efff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    nav {
+      display: flex;
+      gap: 1.5rem;
+    }
+
+    nav a {
+      color: rgba(255, 255, 255, 0.7);
+      text-decoration: none;
+      font-size: 0.95rem;
+      font-weight: 500;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      transition: var(--transition);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    nav a:hover, nav a.active {
+      color: white;
+      background-color: var(--navy-secondary);
+    }
+
+    nav a.active {
+      box-shadow: inset 0 -2px 0 #64ffda;
+    }
+
+    /* Main Container */
+    main {
+      flex: 1;
+      max-width: 1400px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    /* Views (SPA) */
+    .view {
+      display: none;
+      animation: fadeIn 0.4s ease;
+    }
+
+    .view.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Typography */
+    h1, h2, h3, h4 {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      margin-bottom: 1rem;
+    }
+
+    .view-title-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+      border-bottom: 2px solid rgba(0, 0, 0, 0.05);
+      padding-bottom: 1rem;
+    }
+
+    .view-title {
+      font-size: 1.8rem;
+      color: var(--navy-primary);
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.6rem 1.2rem;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      border: none;
+      cursor: pointer;
+      transition: var(--transition);
+      text-decoration: none;
+    }
+
+    .btn-primary {
+      background-color: var(--accent-blue);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background-color: #1b4d9b;
+      transform: translateY(-2px);
+    }
+
+    .btn-success {
+      background-color: var(--color-buy);
+      color: white;
+    }
+
+    .btn-success:hover {
+      background-color: #059669;
+      transform: translateY(-2px);
+    }
+
+    .btn-danger {
+      background-color: var(--color-sell);
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background-color: #dc2626;
+      transform: translateY(-2px);
+    }
+
+    .btn-secondary {
+      background-color: var(--accent-light);
+      color: var(--accent-blue);
+    }
+
+    .btn-secondary:hover {
+      background-color: #d2def9;
+    }
+
+    /* Cards Grid */
+    .grid-portfolio {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .card-asset {
+      background: var(--bg-card);
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow-sm);
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: var(--transition);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card-asset:hover {
+      transform: translateY(-5px);
+      box-shadow: var(--shadow-lg);
+      border-color: var(--accent-blue);
+    }
+
+    .card-asset-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+    }
+
+    .asset-info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .asset-name {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--navy-primary);
+    }
+
+    .asset-ticker-badge {
+      display: inline-flex;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      background-color: var(--bg-main);
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      margin-top: 0.25rem;
+      width: fit-content;
+      font-family: monospace;
+    }
+
+    .asset-meta-badge {
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 0.3rem 0.6rem;
+      border-radius: 20px;
+      text-transform: uppercase;
+    }
+
+    .asset-type-stock {
+      background-color: var(--accent-light);
+      color: var(--accent-blue);
+    }
+
+    .asset-type-etf {
+      background-color: #f3e8ff;
+      color: #7e22ce;
+    }
+
+    .card-asset-body {
+      margin-bottom: 1.5rem;
+    }
+
+    .asset-numbers {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.5rem;
+      background-color: var(--bg-main);
+      padding: 0.8rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+    }
+
+    .num-box {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .num-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      margin-bottom: 0.2rem;
+    }
+
+    .num-value {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--navy-primary);
+    }
+
+    .thesis-box, .risk-box {
+      font-size: 0.85rem;
+      line-height: 1.4;
+      margin-bottom: 0.8rem;
+    }
+
+    .thesis-box strong, .risk-box strong {
+      color: var(--navy-primary);
+      display: block;
+      margin-bottom: 0.15rem;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .thesis-text {
+      color: var(--text-main);
+      font-style: italic;
+    }
+
+    .risk-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.3rem;
+      margin-top: 0.2rem;
+    }
+
+    .risk-tag {
+      background-color: #fff1f2;
+      color: #e11d48;
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      border: 1px solid #ffe4e6;
+    }
+
+    .card-asset-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.5rem;
+      border-top: 1px solid rgba(0, 0, 0, 0.05);
+      padding-top: 1rem;
+    }
+
+    /* Modal Form */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: rgba(10, 25, 47, 0.6);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-backdrop.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow-lg);
+      max-width: 550px;
+      width: 90%;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 2rem;
+      animation: modalSlide 0.3s ease;
+    }
+
+    @keyframes modalSlide {
+      from { transform: translateY(-30px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+      padding-bottom: 0.8rem;
+    }
+
+    .modal-header h3 {
+      color: var(--navy-primary);
+      font-size: 1.4rem;
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+
+    .form-group {
+      margin-bottom: 1.2rem;
+      position: relative;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--navy-secondary);
+      margin-bottom: 0.4rem;
+    }
+
+    input, textarea, select {
+      width: 100%;
+      padding: 0.7rem 0.9rem;
+      border-radius: 8px;
+      border: 1px solid #dcdcdc;
+      font-size: 0.9rem;
+      transition: var(--transition);
+      font-family: inherit;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 0 3px rgba(48, 102, 190, 0.15);
+    }
+
+    /* Auto-complete dropdown */
+    .autocomplete-items {
+      position: absolute;
+      border: 1px solid #d4d4d4;
+      border-bottom: none;
+      border-top: none;
+      z-index: 99;
+      top: 100%;
+      left: 0;
+      right: 0;
+      max-height: 200px;
+      overflow-y: auto;
+      background-color: white;
+      border-radius: 0 0 8px 8px;
+      box-shadow: var(--shadow-md);
+    }
+
+    .autocomplete-items div {
+      padding: 10px;
+      cursor: pointer;
+      border-bottom: 1px solid #d4d4d4;
+      font-size: 0.85rem;
+    }
+
+    .autocomplete-items div:hover {
+      background-color: var(--accent-light);
+    }
+
+    .autocomplete-active {
+      background-color: var(--accent-blue) !important;
+      color: #ffffff;
+    }
+
+    /* Backtest Dashboard */
+    .backtest-summary {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .accuracy-gauge-card {
+      background: white;
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow-sm);
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      padding: 2rem;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .gauge-circle {
+      position: relative;
+      width: 160px;
+      height: 160px;
+      border-radius: 50%;
+      background: radial-gradient(closest-side, white 79%, transparent 80% 100%),
+        conic-gradient(var(--color-buy) var(--accuracy-deg, 0deg), var(--bg-main) 0deg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1.5rem;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .gauge-value {
+      font-family: 'Outfit', sans-serif;
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: var(--navy-primary);
+    }
+
+    .gauge-label {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .backtest-meta-card {
+      background: white;
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow-sm);
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .meta-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+    }
+
+    .metric-card {
+      background-color: var(--bg-main);
+      padding: 1.2rem;
+      border-radius: var(--border-radius);
+      text-align: left;
+    }
+
+    .metric-num {
+      font-size: 1.8rem;
+      font-weight: 800;
+      font-family: 'Outfit', sans-serif;
+      color: var(--navy-primary);
+      margin-top: 0.3rem;
+    }
+
+    /* Table backtest styling */
+    .table-container {
+      background: white;
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow-sm);
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      overflow-x: auto;
+      margin-top: 1.5rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.9rem;
+    }
+
+    th {
+      background-color: var(--navy-primary);
+      color: white;
+      font-weight: 600;
+      padding: 1rem 1.2rem;
+    }
+
+    td {
+      padding: 1rem 1.2rem;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    tr:hover td {
+      background-color: var(--bg-main);
+    }
+
+    /* Status Badge styling */
+    .badge-signal {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-weight: 700;
+      font-size: 0.8rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 4px;
+    }
+
+    .sig-buy { background-color: var(--color-buy-bg); color: var(--color-buy); }
+    .sig-sell { background-color: var(--color-sell-bg); color: var(--color-sell); }
+    .sig-reduce { background-color: var(--color-reduce-bg); color: var(--color-reduce); }
+    .sig-hold { background-color: var(--color-hold-bg); color: var(--color-hold); }
+    .sig-watch { background-color: var(--color-watch-bg); color: var(--color-watch); }
+
+    .badge-hitmiss {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-weight: 800;
+      font-size: 0.8rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+    }
+
+    .bm-hit { background-color: #d1fae5; color: #065f46; }
+    .bm-miss { background-color: #fee2e2; color: #991b1b; }
+
+    /* Reports View Layout */
+    .reports-layout {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 2rem;
+      height: calc(100vh - 200px);
+      min-height: 550px;
+    }
+
+    .reports-sidebar {
+      background: white;
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow-sm);
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      padding: 1rem;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .report-item {
+      padding: 1rem;
+      border-radius: 8px;
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      cursor: pointer;
+      transition: var(--transition);
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+
+    .report-item:hover, .report-item.active {
+      background-color: var(--accent-light);
+      border-color: var(--accent-blue);
+    }
+
+    .report-item-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--navy-primary);
+      word-break: break-all;
+    }
+
+    .report-item-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .report-type-badge {
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+
+    .rt-daily { background-color: #dbeafe; color: #1e40af; }
+    .rt-hourly { background-color: #fff3c4; color: #854d0e; }
+    .rt-backtest { background-color: #f3e8ff; color: #6b21a8; }
+
+    .reports-main {
+      background: white;
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow-sm);
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      padding: 2.5rem;
+      overflow-y: auto;
+    }
+
+    /* Markdown Document Styling */
+    .markdown-body {
+      line-height: 1.6;
+      font-size: 0.95rem;
+      color: #333333;
+    }
+
+    .markdown-body h1 {
+      font-size: 1.8rem;
+      border-bottom: 2px solid var(--accent-blue);
+      padding-bottom: 0.5rem;
+      color: var(--navy-primary);
+      margin-bottom: 1.5rem;
+    }
+
+    .markdown-body h2 {
+      font-size: 1.35rem;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+      padding-bottom: 0.3rem;
+      color: var(--navy-secondary);
+      margin-top: 1.8rem;
+      margin-bottom: 1rem;
+    }
+
+    .markdown-body h3 {
+      font-size: 1.1rem;
+      color: var(--accent-blue);
+      margin-top: 1.2rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .markdown-body p {
+      margin-bottom: 1rem;
+    }
+
+    .markdown-body ul, .markdown-body ol {
+      margin-left: 1.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .markdown-body li {
+      margin-bottom: 0.3rem;
+    }
+
+    .markdown-body blockquote {
+      background-color: var(--bg-main);
+      border-left: 4px solid var(--accent-blue);
+      padding: 1rem;
+      border-radius: 0 8px 8px 0;
+      margin-bottom: 1rem;
+      font-style: italic;
+    }
+
+    .markdown-body blockquote p {
+      margin-bottom: 0;
+    }
+
+    .markdown-body table {
+      margin-bottom: 1.5rem;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+    }
+
+    .markdown-body th {
+      background-color: var(--navy-secondary);
+      color: white;
+    }
+
+    .markdown-body td, .markdown-body th {
+      border: 1px solid #e2e8f0;
+      padding: 0.6rem 0.8rem;
+    }
+
+    .markdown-body a {
+      color: var(--accent-blue);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .markdown-body a:hover {
+      text-decoration: underline;
+    }
+
+    /* Floating Status Message */
+    .toast {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      background-color: var(--navy-primary);
+      color: white;
+      padding: 1rem 1.5rem;
+      border-radius: 8px;
+      box-shadow: var(--shadow-lg);
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      z-index: 2000;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: var(--transition);
+    }
+
+    .toast.active {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    /* Portfolio Custom Dashboard Styles */
+    .portfolio-summary-banner {
+      background: linear-gradient(135deg, var(--navy-primary) 0%, var(--navy-secondary) 100%);
+      color: white;
+      padding: 1.5rem 2rem;
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow-md);
+      display: flex;
+      gap: 4rem;
+      margin-bottom: 1.5rem;
+      align-items: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .portfolio-summary-banner::after {
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -10%;
+      width: 300px;
+      height: 300px;
+      background: radial-gradient(circle, rgba(100, 255, 218, 0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .summary-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      z-index: 1;
+    }
+    .summary-label {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .summary-val {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: #64ffda;
+    }
+    .portfolio-controls-bar {
+      background: white;
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow-sm);
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      padding: 0.8rem 1.2rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .portfolio-controls-bar .search-box {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      flex: 1;
+      min-width: 280px;
+    }
+    .portfolio-controls-bar .search-box i {
+      color: var(--text-muted);
+    }
+    .portfolio-controls-bar .search-box input {
+      border: none;
+      padding: 0.4rem 0.5rem;
+      font-size: 0.95rem;
+      width: 100%;
+      outline: none;
+      background: transparent;
+    }
+    .portfolio-controls-bar .controls-right {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .portfolio-controls-bar .sort-box {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .portfolio-controls-bar .sort-box label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--navy-secondary);
+      white-space: nowrap;
+      margin-bottom: 0;
+    }
+    .portfolio-controls-bar .sort-box select {
+      padding: 0.4rem 0.8rem;
+      border-radius: 8px;
+      border: 1px solid #dcdcdc;
+      font-size: 0.85rem;
+      background-color: white;
+      cursor: pointer;
+      min-width: 180px;
+      outline: none;
+      transition: var(--transition);
+    }
+    .portfolio-controls-bar .sort-box select:focus {
+      border-color: var(--accent-blue);
+    }
+    .portfolio-controls-bar .view-toggle {
+      display: flex;
+      background-color: var(--bg-main);
+      padding: 0.25rem;
+      border-radius: 8px;
+      border: 1px solid rgba(0, 0, 0, 0.05);
+    }
+    .portfolio-controls-bar .view-toggle .toggle-btn {
+      border: none;
+      background: transparent;
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: var(--transition);
+    }
+    .portfolio-controls-bar .view-toggle .toggle-btn:hover {
+      color: var(--navy-primary);
+    }
+    .portfolio-controls-bar .view-toggle .toggle-btn.active {
+      background-color: white;
+      color: var(--accent-blue);
+      box-shadow: var(--shadow-sm);
+    }
+    .table-portfolio {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+    }
+    .table-portfolio th {
+      background-color: var(--navy-primary);
+      color: white;
+      font-weight: 600;
+      padding: 1rem 1.2rem;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .table-portfolio td {
+      padding: 1rem 1.2rem;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+      vertical-align: middle;
+    }
+    .table-portfolio tr:hover td {
+      background-color: var(--bg-main);
+    }
+    .table-portfolio .asset-info-cell {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+    .table-portfolio .asset-name-container {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .table-portfolio .asset-name-text {
+      font-weight: 700;
+      color: var(--navy-primary);
+      font-size: 0.95rem;
+    }
+    .table-portfolio .thesis-text-cell {
+      font-size: 0.85rem;
+      color: var(--text-main);
+      max-width: 250px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .table-portfolio .thesis-text-cell:hover {
+      white-space: normal;
+      word-break: break-all;
+    }
+    .table-portfolio .numeric-val {
+      font-weight: 700;
+      font-family: 'Inter', sans-serif;
+    }
+    .table-portfolio .weight-val {
+      color: var(--accent-blue);
+      font-weight: 700;
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .backtest-summary {
+        grid-template-columns: 1fr;
+      }
+      .reports-layout {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+      .reports-sidebar {
+        height: 250px;
+      }
+    }
+
+    @media (max-width: 600px) {
+      header {
+        flex-direction: column;
+        gap: 1rem;
+        padding: 1rem;
+      }
+      main {
+        padding: 1rem;
+      }
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+      .view-title-container {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="brand" onclick="switchView('portfolio')">
+      <i class="fa-solid fa-chart-line"></i> Stock-Noti Premium
+    </div>
+    <nav>
+      <a href="#" id="nav-portfolio" class="active" onclick="switchView('portfolio')">
+        <i class="fa-solid fa-briefcase"></i> 포트폴리오
+      </a>
+      <a href="#" id="nav-backtest" onclick="switchView('backtest')">
+        <i class="fa-solid fa-bullseye"></i> 적중률 모니터
+      </a>
+      <a href="#" id="nav-reports" onclick="switchView('reports')">
+        <i class="fa-solid fa-file-invoice-dollar"></i> 투자 리포트
+      </a>
+    </nav>
+  </header>
+
+  <!-- Main View -->
+  <main>
+
+    <!-- View 1: Portfolio -->
+    <section id="view-portfolio" class="view active">
+      <div class="view-title-container" style="margin-bottom: 1.5rem;">
+        <h2 class="view-title"><i class="fa-solid fa-folder-open"></i>자산 관리</h2>
+        <div style="display: flex; gap: 0.8rem;">
+          <button class="btn btn-secondary" onclick="syncPortfolioPrices()" id="btn-sync-prices">
+            <i class="fa-solid fa-arrows-rotate"></i> 실시간 시세 동기화
+          </button>
+          <button class="btn btn-primary" onclick="openAddAssetModal()">
+            <i class="fa-solid fa-plus"></i> 신규 자산 추가
+          </button>
+        </div>
+      </div>
+
+
+      <!-- 내 보유자산 검색, 정렬 및 뷰 전환 컨트롤러 -->
+      <div class="portfolio-controls-bar">
+        <div class="search-box">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" id="portfolio-search" placeholder="보유 종목명 또는 티커 검색 (예: 삼성전자, 0167A0)" oninput="handleSearch(this.value)">
+        </div>
+        <div class="controls-right">
+          <div class="sort-box">
+            <label for="portfolio-sort"><i class="fa-solid fa-sort"></i> 정렬:</label>
+            <select id="portfolio-sort" onchange="handleSort(this.value)">
+              <option value="weight_desc">보유비율순 (높은 순)</option>
+              <option value="weight_asc">보유비율순 (낮은 순)</option>
+              <option value="name_asc">이름순 (ㄱ-ㅎ)</option>
+              <option value="name_desc">이름순 (ㅎ-ㄱ)</option>
+            </select>
+          </div>
+          <div class="view-toggle">
+            <button class="toggle-btn active" id="btn-view-card" onclick="setViewMode('card')" title="카드 형식으로 보기">
+              <i class="fa-solid fa-grip"></i> 카드
+            </button>
+            <button class="toggle-btn" id="btn-view-list" onclick="setViewMode('list')" title="리스트 형식으로 보기">
+              <i class="fa-solid fa-list"></i> 리스트
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-portfolio" id="portfolio-list">
+        <!-- Rendered via JavaScript -->
+        <div style="text-align: center; grid-column: 1/-1; padding: 3rem;">
+          <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 2rem; color: var(--accent-blue);"></i>
+          <p style="margin-top: 1rem; color: var(--text-muted);">자산 목록을 불러오고 있습니다...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- View 2: Backtest Accuracy Monitor -->
+    <section id="view-backtest" class="view">
+      <div class="view-title-container">
+        <h2 class="view-title"><i class="fa-solid fa-bullseye"></i> JaaS 투자 판단 적중률 모니터</h2>
+        <div style="display: flex; gap: 0.8rem; flex-wrap: wrap;">
+          <button class="btn btn-secondary" style="background-color: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0;" onclick="testSlackAlert()" id="btn-test-slack">
+            <i class="fa-brands fa-slack"></i> 슬랙 알림 테스트
+          </button>
+          <button class="btn btn-secondary" style="background-color: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe;" onclick="runWeeklyOperations()" id="btn-run-weekly">
+            <i class="fa-solid fa-calendar-check"></i> 주간 운영 분석 실행
+          </button>
+          <button class="btn btn-secondary" onclick="runBacktestSimulation()" id="btn-run-sim">
+            <i class="fa-solid fa-rotate"></i> 시뮬레이션 즉시 실행
+          </button>
+        </div>
+      </div>
+
+      <div class="backtest-summary">
+        <!-- Accuracy Circular Gauge -->
+        <div class="accuracy-gauge-card">
+          <div class="gauge-circle" id="gauge-circle">
+            <span class="gauge-value" id="gauge-value">0.0%</span>
+          </div>
+          <span class="gauge-label">종합 백테스트 적중률</span>
+        </div>
+
+        <!-- Meta Metrics Card -->
+        <div class="backtest-meta-card">
+          <h3>투자 평가 요약</h3>
+          <div class="meta-metrics">
+            <div class="metric-card">
+              <span class="num-label">검증된 총 이벤트</span>
+              <div class="metric-num" id="stat-total">0</div>
+            </div>
+            <div class="metric-card" style="border-left: 4px solid var(--color-buy);">
+              <span class="num-label">적중(HIT) 성공</span>
+              <div class="metric-num" id="stat-hits">0</div>
+            </div>
+            <div class="metric-card" style="border-left: 4px solid var(--color-sell);">
+              <span class="num-label">오판(MISS) 실패</span>
+              <div class="metric-num" id="stat-misses">0</div>
+            </div>
+          </div>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 1rem;">
+            * 적중 성공 조건: **추매검토(Buy)**는 T+5일 또는 T+20일 이내에 당일 종가 대비 상승 시, **매도/비중축소(Sell/Reduce)**는 하락/횡보 시, **보유(Hold)**는 주가 방어 성공 시 HIT 판정됩니다.
+          </p>
+        </div>
+      </div>
+
+      <h3>상세 백테스트 결과 내역 (Swing T+5/T+20 Horizon)</h3>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>종목명</th>
+              <th>이벤트 일자</th>
+              <th>이벤트 요약</th>
+              <th>JaaS 신호</th>
+              <th>T0 종가</th>
+              <th>T+5 변동률</th>
+              <th>T+20 변동률</th>
+              <th>판정</th>
+            </tr>
+          </thead>
+          <tbody id="backtest-table-body">
+            <!-- Rendered via JavaScript -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- View 3: Reports View -->
+    <section id="view-reports" class="view">
+      <div class="view-title-container">
+        <h2 class="view-title"><i class="fa-solid fa-file-lines"></i> 생성된 투자 종합 리포트</h2>
+      </div>
+
+      <div class="reports-layout">
+        <!-- Sidebar: list of reports -->
+        <div class="reports-sidebar" id="reports-sidebar-list">
+          <!-- Rendered via JavaScript -->
+        </div>
+
+        <!-- Main pane: Markdown View -->
+        <div class="reports-main" id="report-view-pane">
+          <div style="text-align: center; color: var(--text-muted); margin-top: 5rem;">
+            <i class="fa-solid fa-file-invoice-dollar" style="font-size: 4rem; opacity: 0.2; margin-bottom: 1.5rem;"></i>
+            <p>좌측 사이드바에서 상세 정보를 확인하고 싶은 리포트를 클릭해 주세요.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast">
+    <i class="fa-solid fa-circle-info"></i>
+    <span id="toast-message">메시지 내용</span>
+  </div>
+
+  <!-- Asset Modal -->
+  <div class="modal-backdrop" id="modal-asset">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-title">신규 자산 추가</h3>
+        <button class="close-btn" onclick="closeAssetModal()">&times;</button>
+      </div>
+      <form id="form-asset" onsubmit="saveAsset(event)" autocomplete="off">
+        <input type="hidden" id="edit-mode" value="false">
+        
+        <!-- Search Ticker Input -->
+        <div class="form-group" id="search-container">
+          <label for="form-search">종목명/티커 검색</label>
+          <input type="text" id="form-search" placeholder="회사명 혹은 코드를 검색하세요 (예: 삼성전기)" oninput="searchTicker(this.value)">
+          <div id="autocomplete-list" class="autocomplete-items"></div>
+        </div>
+
+        <!-- Auto filled fields -->
+        <div class="form-row">
+          <div class="form-group">
+            <label for="form-name">자산명</label>
+            <input type="text" id="form-name" required readonly>
+          </div>
+          <div class="form-group">
+            <label for="form-ticker">티커 (6자리)</label>
+            <input type="text" id="form-ticker" required readonly>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="form-type">자산 유형</label>
+            <select id="form-type" required>
+              <option value="stock">개별 주식 (Stock)</option>
+              <option value="etf">ETF (지수 연계 등)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="form-watch">감시 레벨</label>
+            <select id="form-watch">
+              <option value="normal">일반 (Normal)</option>
+              <option value="high">고위험/집중 (High)</option>
+              <option value="low">저감시 (Low)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Performance / Holding variables -->
+        <div class="form-row">
+          <div class="form-group">
+            <label for="form-avg-price">매수 평단가 (원)</label>
+            <input type="number" id="form-avg-price" step="any" value="0" required>
+          </div>
+          <div class="form-group">
+            <label for="form-qty">보유 수량</label>
+            <input type="number" id="form-qty" step="any" value="0" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="form-weight">포트폴리오 비중 (%) - 자동 연산됨</label>
+          <input type="text" id="form-weight" placeholder="보유 수량 및 매수 평단가 입력 시 서버에서 자동으로 비중 비율을 계산하여 할당합니다." readonly style="background-color: var(--bg-main); color: var(--text-muted); cursor: not-allowed;">
+        </div>
+
+        <!-- Core thesis information for AI prompt evaluation -->
+        <div class="form-group">
+          <label for="form-thesis">핵심 투자 아이디어 (Investment Thesis)</label>
+          <textarea id="form-thesis" rows="3" placeholder="예: AI 데이터센터 및 전장용 MLCC/FC-BGA 고부가 부품 공급 확대 수혜" required></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="form-risk">핵심 감시 리스크 요인 (쉼표구분 키워드)</label>
+          <input type="text" id="form-risk" placeholder="예: 스마트폰 수요 둔화, R&D 투자 감소, 경쟁사 진입" required>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.8rem; margin-top: 1.5rem;">
+          <button type="button" class="btn btn-secondary" onclick="closeAssetModal()">취소</button>
+          <button type="submit" class="btn btn-primary" id="modal-submit-btn">저장</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- JavaScript SPA Controller -->
+  <script>
+    // Global State
+    let currentView = 'portfolio';
+    let assetList = [];
+    let reportList = [];
+    let searchTimeout = null;
+    
+    // UI state for portfolio filter & view controls
+    let portfolioViewMode = 'card';
+    let portfolioSearchQuery = '';
+    let portfolioSortOrder = 'weight_desc'; // Default sorting by weight descending
+
+    // Bootstrap app
+    window.addEventListener('DOMContentLoaded', () => {
+      fetchAssets();
+      fetchBacktestStats();
+      fetchReports();
+    });
+
+    // Toggle view layout
+    function switchView(viewId) {
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
+
+      document.getElementById(`view-${viewId}`).classList.add('active');
+      document.getElementById(`nav-${viewId}`).classList.add('active');
+      
+      currentView = viewId;
+
+      // Refresh view dynamic data
+      if (viewId === 'portfolio') fetchAssets();
+      else if (viewId === 'backtest') fetchBacktestStats();
+      else if (viewId === 'reports') fetchReports();
+    }
+
+    // Floating notifications
+    function showToast(message, isError = false) {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toast-message');
+      
+      toastMsg.innerText = message;
+      if (isError) {
+        toast.style.borderLeft = "4px solid var(--color-sell)";
+      } else {
+        toast.style.borderLeft = "4px solid var(--color-buy)";
+      }
+      
+      toast.classList.add('active');
+      setTimeout(() => {
+        toast.classList.remove('active');
+      }, 3000);
+    }
+
+    // 1. Get Assets and render
+    async function syncPortfolioPrices() {
+      const btn = document.getElementById('btn-sync-prices');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-arrows-rotate fa-spin"></i> 동기화 중...';
+      
+      try {
+        const response = await fetch('/api/assets/sync-prices', { method: 'POST' });
+        const resData = await response.json();
+        
+        if (response.ok && resData.success) {
+          showToast('포트폴리오 실시간 시세 및 비중 동기화가 완료되었습니다.');
+          fetchAssets();
+        } else {
+          showToast('동기화 실패: ' + resData.error, true);
+        }
+      } catch (err) {
+        showToast('통신 오류: ' + err.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> 실시간 시세 동기화';
+      }
+    }
+
+    async function fetchAssets() {
+      try {
+        const response = await fetch('/api/assets');
+        assetList = await response.json();
+        renderAssets();
+      } catch (err) {
+        showToast('포트폴리오 자산을 가져오지 못했습니다: ' + err.message, true);
+      }
+    }
+
+    function handleSearch(val) {
+      portfolioSearchQuery = val;
+      renderAssets();
+    }
+
+    function handleSort(val) {
+      portfolioSortOrder = val;
+      renderAssets();
+    }
+
+    function setViewMode(mode) {
+      portfolioViewMode = mode;
+      
+      // Update toggle buttons classes
+      const btnCard = document.getElementById('btn-view-card');
+      const btnList = document.getElementById('btn-view-list');
+      if (mode === 'card') {
+        btnCard.classList.add('active');
+        btnList.classList.remove('active');
+      } else {
+        btnCard.classList.remove('active');
+        btnList.classList.add('active');
+      }
+      
+      renderAssets();
+    }
+
+    function renderAssets() {
+      const container = document.getElementById('portfolio-list');
+
+      if (assetList.length === 0) {
+        container.className = 'grid-portfolio';
+        container.innerHTML = `
+          <div style="text-align: center; grid-column: 1/-1; padding: 4rem;">
+            <i class="fa-solid fa-folder-open" style="font-size: 3rem; color: var(--text-muted); opacity: 0.3; margin-bottom: 1.5rem;"></i>
+            <p style="color: var(--text-muted);">보유 자산이 존재하지 않습니다. 우측 상단의 신규 자산 추가 버튼을 눌러 등록해 보세요.</p>
+          </div>
+        `;
+        return;
+      }
+
+      // 2. Filter list by search query
+      const q = portfolioSearchQuery.trim().toLowerCase();
+      const filteredList = assetList.filter(asset => {
+        const name = asset.name.toLowerCase();
+        const ticker = asset.ticker.toLowerCase();
+        return name.includes(q) || ticker.includes(q);
+      });
+
+      if (filteredList.length === 0) {
+        container.className = 'grid-portfolio';
+        container.innerHTML = `
+          <div style="text-align: center; grid-column: 1/-1; padding: 4rem;">
+            <i class="fa-solid fa-magnifying-glass" style="font-size: 3rem; color: var(--text-muted); opacity: 0.3; margin-bottom: 1.5rem;"></i>
+            <p style="color: var(--text-muted);">검색 조건에 맞는 자산이 없습니다.</p>
+          </div>
+        `;
+        return;
+      }
+
+      // 3. Sort list by chosen order
+      const sortedList = [...filteredList];
+      if (portfolioSortOrder === 'name_asc') {
+        sortedList.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+      } else if (portfolioSortOrder === 'name_desc') {
+        sortedList.sort((a, b) => b.name.localeCompare(a.name, 'ko'));
+      } else if (portfolioSortOrder === 'weight_desc') {
+        sortedList.sort((a, b) => (b.holding_weight || 0) - (a.holding_weight || 0));
+      } else if (portfolioSortOrder === 'weight_asc') {
+        sortedList.sort((a, b) => (a.holding_weight || 0) - (b.holding_weight || 0));
+      }
+
+      // 4. Render Layout (Card Grid vs List Table)
+      if (portfolioViewMode === 'list') {
+        container.className = 'table-container';
+        container.style.marginTop = '0';
+        
+        let tableRows = sortedList.map(asset => {
+          const risks = asset.risk_keywords ? asset.risk_keywords.split(',').map(r => r.trim()).filter(r => r !== '') : [];
+          const typeBadge = asset.asset_type === 'etf' ? '<span class="asset-meta-badge asset-type-etf">ETF</span>' : '<span class="asset-meta-badge asset-type-stock">Stock</span>';
+          const assetTotalVal = (asset.avg_price || 0) * (asset.holding_qty || 0);
+
+          return `
+            <tr>
+              <td>
+                <div class="asset-info-cell">
+                  <div class="asset-name-container">
+                    <span class="asset-name-text">${asset.name}</span>
+                    ${typeBadge}
+                  </div>
+                  <span class="asset-ticker-badge" style="margin-top:0.25rem;">${asset.ticker}</span>
+                </div>
+              </td>
+              <td class="numeric-val">${Math.round(asset.avg_price).toLocaleString()}원</td>
+              <td class="numeric-val">${parseFloat(asset.holding_qty).toLocaleString()}</td>
+              <td class="numeric-val" style="font-weight: 700;">${Math.round(assetTotalVal).toLocaleString()}원</td>
+              <td class="weight-val">${asset.holding_weight}%</td>
+              <td class="thesis-text-cell" title="${asset.investment_thesis || ''}">${asset.investment_thesis || '미지정'}</td>
+              <td>
+                <div class="risk-tags">
+                  ${risks.length > 0 ? risks.map(r => `<span class="risk-tag">${r}</span>`).join('') : '<span style="font-size: 0.75rem; color: var(--text-muted);">없음</span>'}
+                </div>
+              </td>
+              <td style="white-space: nowrap;">
+                <button class="btn btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.8rem; gap: 0.2rem; display: inline-flex;" onclick="openEditAssetModal('${asset.ticker}')">
+                  <i class="fa-solid fa-pen-to-square"></i> 수정
+                </button>
+                <button class="btn btn-danger" style="padding: 0.3rem 0.6rem; font-size: 0.8rem; background-color:#ffe4e6; color:#e11d48; gap: 0.2rem; display: inline-flex;" onclick="deleteAsset('${asset.ticker}')">
+                  <i class="fa-solid fa-trash"></i> 삭제
+                </button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+
+        container.innerHTML = `
+          <table class="table-portfolio">
+            <thead>
+              <tr>
+                <th>종목명 (티커)</th>
+                <th>평단가</th>
+                <th>보유수량</th>
+                <th>평가금액</th>
+                <th>비중</th>
+                <th>투자 아이디어</th>
+                <th>감시 리스크</th>
+                <th>관리</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRows}
+            </tbody>
+          </table>
+        `;
+      } else {
+        container.className = 'grid-portfolio';
+        container.style.marginTop = '0';
+        
+        container.innerHTML = sortedList.map(asset => {
+          const risks = asset.risk_keywords ? asset.risk_keywords.split(',').map(r => r.trim()).filter(r => r !== '') : [];
+          const typeBadge = asset.asset_type === 'etf' ? '<span class="asset-meta-badge asset-type-etf">ETF</span>' : '<span class="asset-meta-badge asset-type-stock">Stock</span>';
+          
+          return `
+            <div class="card-asset" id="asset-${asset.ticker}">
+              <div>
+                <div class="card-asset-header">
+                  <div class="asset-info">
+                    <span class="asset-name">${asset.name}</span>
+                    <span class="asset-ticker-badge">${asset.ticker}</span>
+                  </div>
+                  ${typeBadge}
+                </div>
+
+                <div class="card-asset-body">
+                  <div class="asset-numbers" style="grid-template-columns: repeat(2, 1fr); gap: 0.8rem 0.5rem;">
+                    <div class="num-box">
+                      <span class="num-label">평단가</span>
+                      <span class="num-value">${Math.round(asset.avg_price).toLocaleString()}원</span>
+                    </div>
+                    <div class="num-box">
+                      <span class="num-label">보유수량</span>
+                      <span class="num-value">${parseFloat(asset.holding_qty).toLocaleString()}</span>
+                    </div>
+                    <div class="num-box" style="border-top: 1px solid rgba(0, 0, 0, 0.05); padding-top: 0.4rem;">
+                      <span class="num-label">보유금액</span>
+                      <span class="num-value" style="color: var(--navy-primary); font-weight: 800;">${Math.round(asset.avg_price * asset.holding_qty).toLocaleString()}원</span>
+                    </div>
+                    <div class="num-box" style="border-top: 1px solid rgba(0, 0, 0, 0.05); padding-top: 0.4rem;">
+                      <span class="num-label">비중</span>
+                      <span class="num-value" style="color: var(--accent-blue); font-weight: 700;">${asset.holding_weight}%</span>
+                    </div>
+                  </div>
+
+                  <div class="thesis-box">
+                    <strong>핵심 투자 아이디어</strong>
+                    <span class="thesis-text">"${asset.investment_thesis || '미지정'}"</span>
+                  </div>
+
+                  <div class="risk-box">
+                    <strong>감시 리스크 요인</strong>
+                    <div class="risk-tags">
+                      ${risks.length > 0 ? risks.map(r => `<span class="risk-tag">${r}</span>`).join('') : '<span style="font-size: 0.75rem; color: var(--text-muted);">없음</span>'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card-asset-actions">
+                <button class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="openEditAssetModal('${asset.ticker}')">
+                  <i class="fa-solid fa-pen-to-square"></i> 수정
+                </button>
+                <button class="btn btn-danger" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; background-color:#ffe4e6; color:#e11d48;" onclick="deleteAsset('${asset.ticker}')">
+                  <i class="fa-solid fa-trash"></i> 삭제
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+
+    // Autocomplete Search helper
+    async function searchTicker(val) {
+      const container = document.getElementById('autocomplete-list');
+      container.innerHTML = '';
+      if (!val || val.length < 2) return;
+
+      try {
+        const response = await fetch(`/api/search?q=${encodeURIComponent(val)}`);
+        const items = await response.json();
+        
+        if (items.length === 0) return;
+
+        items.forEach(item => {
+          const div = document.createElement('div');
+          div.innerHTML = `<strong>${item.corp_name}</strong> (${item.ticker})`;
+          div.addEventListener('click', () => {
+            document.getElementById('form-name').value = item.corp_name;
+            document.getElementById('form-ticker').value = item.ticker;
+            document.getElementById('form-search').value = item.corp_name;
+            
+            // Auto detect if it contains 'ETF' in title
+            if (item.corp_name.toLowerCase().includes('etf')) {
+              document.getElementById('form-type').value = 'etf';
+            } else {
+              document.getElementById('form-type').value = 'stock';
+            }
+
+            container.innerHTML = '';
+          });
+          container.appendChild(div);
+        });
+
+      } catch (err) {
+        console.error('검색 도중 에러가 발생했습니다:', err.message);
+      }
+    }
+
+    // Modal Control
+    function openAddAssetModal() {
+      document.getElementById('modal-title').innerText = '신규 자산 추가';
+      document.getElementById('form-asset').reset();
+      document.getElementById('edit-mode').value = 'false';
+      document.getElementById('search-container').style.display = 'block';
+      document.getElementById('form-ticker').readOnly = true;
+      document.getElementById('form-name').readOnly = true;
+      document.getElementById('modal-asset').classList.add('active');
+    }
+
+    function openEditAssetModal(ticker) {
+      const asset = assetList.find(a => a.ticker === ticker);
+      if (!asset) return;
+
+      document.getElementById('modal-title').innerText = '자산 정보 수정';
+      document.getElementById('edit-mode').value = 'true';
+      document.getElementById('search-container').style.display = 'none'; // hide search on editing
+
+      document.getElementById('form-ticker').value = asset.ticker;
+      document.getElementById('form-ticker').readOnly = true;
+      document.getElementById('form-name').value = asset.name;
+      document.getElementById('form-name').readOnly = true;
+      
+      document.getElementById('form-type').value = asset.asset_type;
+      document.getElementById('form-watch').value = asset.watch_level || 'normal';
+      document.getElementById('form-avg-price').value = asset.avg_price;
+      document.getElementById('form-qty').value = asset.holding_qty;
+      document.getElementById('form-weight').value = asset.holding_weight;
+      document.getElementById('form-thesis').value = asset.investment_thesis || '';
+      document.getElementById('form-risk').value = asset.risk_keywords || '';
+
+      document.getElementById('modal-asset').classList.add('active');
+    }
+
+    function closeAssetModal() {
+      document.getElementById('modal-asset').classList.remove('active');
+      document.getElementById('autocomplete-list').innerHTML = '';
+    }
+
+    // Save Asset handler
+    async function saveAsset(e) {
+      e.preventDefault();
+      
+      const isEdit = document.getElementById('edit-mode').value === 'true';
+      const ticker = document.getElementById('form-ticker').value;
+      
+      const payload = {
+        ticker: ticker,
+        name: document.getElementById('form-name').value,
+        asset_type: document.getElementById('form-type').value,
+        watch_level: document.getElementById('form-watch').value,
+        avg_price: parseFloat(document.getElementById('form-avg-price').value) || 0.0,
+        holding_qty: parseFloat(document.getElementById('form-qty').value) || 0.0,
+        investment_thesis: document.getElementById('form-thesis').value,
+        risk_keywords: document.getElementById('form-risk').value,
+        is_active: 1
+      };
+
+      try {
+        let response;
+        if (isEdit) {
+          response = await fetch(`/api/assets/${ticker}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+        } else {
+          response = await fetch('/api/assets', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+        }
+
+        const resData = await response.json();
+        if (response.ok) {
+          showToast(isEdit ? '자산 정보가 수정되었습니다.' : '신규 자산이 추가되었습니다.');
+          closeAssetModal();
+          fetchAssets();
+        } else {
+          showToast('저장 실패: ' + resData.error, true);
+        }
+      } catch (err) {
+        showToast('통신 오류: ' + err.message, true);
+      }
+    }
+
+    // Delete Asset handler
+    async function deleteAsset(ticker) {
+      if (!confirm('정말로 이 자산을 포트폴리오에서 삭제하시겠습니까? 관련 데이터가 소실됩니다.')) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/assets/${ticker}`, {
+          method: 'DELETE'
+        });
+        
+        if (response.ok) {
+          showToast('자산이 삭제되었습니다.');
+          fetchAssets();
+        } else {
+          const resData = await response.json();
+          showToast('삭제 실패: ' + resData.error, true);
+        }
+      } catch (err) {
+        showToast('통신 오류: ' + err.message, true);
+      }
+    }
+
+    // 2. Fetch Backtest stats and render
+    async function fetchBacktestStats() {
+      try {
+        const response = await fetch('/api/backtest');
+        const data = await response.json();
+        renderBacktest(data);
+      } catch (err) {
+        showToast('백테스트 통계를 가져오지 못했습니다: ' + err.message, true);
+      }
+    }
+
+    function renderBacktest(data) {
+      // 1. Render Gauge circle
+      const accuracy = data.accuracy || 0.0;
+      const deg = (accuracy / 100) * 360;
+      
+      const circle = document.getElementById('gauge-circle');
+      circle.style.setProperty('--accuracy-deg', `${deg}deg`);
+      
+      document.getElementById('gauge-value').innerText = `${accuracy.toFixed(1)}%`;
+      
+      // 2. Render Numerical summary
+      document.getElementById('stat-total').innerText = data.totalEvents;
+      document.getElementById('stat-hits').innerText = data.hitsCount;
+      document.getElementById('stat-misses').innerText = data.totalEvents - data.hitsCount;
+
+      // Colorize gauge border base on target
+      if (accuracy >= 80) {
+        circle.style.background = `radial-gradient(closest-side, white 79%, transparent 80% 100%), conic-gradient(var(--color-buy) ${deg}deg, var(--bg-main) 0deg)`;
+      } else {
+        circle.style.background = `radial-gradient(closest-side, white 79%, transparent 80% 100%), conic-gradient(var(--color-sell) ${deg}deg, var(--bg-main) 0deg)`;
+      }
+
+      // 3. Render Table
+      const tableBody = document.getElementById('backtest-table-body');
+      if (data.results.length === 0) {
+        tableBody.innerHTML = `
+          <tr>
+            <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 3rem;">
+              분석 및 판단된 투자 이벤트 내역이 존재하지 않습니다.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tableBody.innerHTML = data.results.map(res => {
+        let sigClass = 'sig-watch';
+        if (res.signal === '추매검토') sigClass = 'sig-buy';
+        else if (res.signal === '매도검토') sigClass = 'sig-sell';
+        else if (res.signal === '비중축소') sigClass = 'sig-reduce';
+        else if (res.signal === '보유') sigClass = 'sig-hold';
+
+        const hitClass = res.result === 'HIT' ? 'bm-hit' : 'bm-miss';
+        const hitIcon = res.result === 'HIT' ? '🎯 HIT' : '❌ MISS';
+
+        return `
+          <tr>
+            <td><strong>${res.asset}</strong></td>
+            <td>${res.date}</td>
+            <td title="${res.title}">${res.title.length > 30 ? res.title.substring(0, 30) + '...' : res.title}</td>
+            <td><span class="badge-signal ${sigClass}">${res.signal}</span></td>
+            <td>${res.T0_Price.toLocaleString()}원</td>
+            <td style="color: ${res.t5Return > 0 ? 'red' : res.t5Return < 0 ? 'blue' : 'inherit'}; font-weight:600;">
+              ${res.t5Return > 0 ? '+' : ''}${res.t5Return.toFixed(2)}%
+            </td>
+            <td style="color: ${res.t20Return > 0 ? 'red' : res.t20Return < 0 ? 'blue' : 'inherit'}; font-weight:600;">
+              ${res.t20Return > 0 ? '+' : ''}${res.t20Return.toFixed(2)}%
+            </td>
+            <td><span class="badge-hitmiss ${hitClass}">${hitIcon}</span></td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    async function runBacktestSimulation() {
+      const btn = document.getElementById('btn-run-sim');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> 실행 중...';
+      
+      try {
+        const response = await fetch('/api/backtest/run', { method: 'POST' });
+        const resData = await response.json();
+        
+        if (response.ok && resData.success) {
+          showToast('백테스트 시뮬레이션 및 평가가 성황리에 완료되었습니다.');
+          fetchBacktestStats();
+        } else {
+          showToast('실행 실패: ' + resData.error, true);
+        }
+      } catch (err) {
+        showToast('통신 오류: ' + err.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-rotate"></i> 시뮬레이션 즉시 실행';
+      }
+    }
+
+    async function testSlackAlert() {
+      const btn = document.getElementById('btn-test-slack');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> 전송 중...';
+      
+      try {
+        const response = await fetch('/api/slack/test', { method: 'POST' });
+        const resData = await response.json();
+        
+        if (response.ok && resData.success) {
+          showToast('슬랙 연동 테스트 메시지가 성공적으로 발송되었습니다!');
+        } else {
+          showToast('전송 실패: ' + resData.error, true);
+        }
+      } catch (err) {
+        showToast('통신 오류: ' + err.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-brands fa-slack"></i> 슬랙 알림 테스트';
+      }
+    }
+
+    async function runWeeklyOperations() {
+      const btn = document.getElementById('btn-run-weekly');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> 실행 중...';
+      
+      try {
+        const response = await fetch('/api/weekly/run', { method: 'POST' });
+        const resData = await response.json();
+        
+        if (response.ok && resData.success) {
+          showToast(`주간 운영 배치가 완료되었습니다. (복구된 URL: ${resData.recoveredCount}개)`);
+          fetchReports();
+          fetchBacktestStats();
+        } else {
+          showToast('실행 실패: ' + resData.error, true);
+        }
+      } catch (err) {
+        showToast('통신 오류: ' + err.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-calendar-check"></i> 주간 운영 분석 실행';
+      }
+    }
+
+    // 3. Get Report lists and view report details
+    async function fetchReports() {
+      try {
+        const response = await fetch('/api/reports');
+        reportList = await response.json();
+        renderReportSidebar();
+      } catch (err) {
+        showToast('리포트 리스트를 가져오지 못했습니다: ' + err.message, true);
+      }
+    }
+
+    function renderReportSidebar() {
+      const sidebar = document.getElementById('reports-sidebar-list');
+      if (reportList.length === 0) {
+        sidebar.innerHTML = '<p style="color: var(--text-muted); text-align:center; padding: 2rem;">리포트가 존재하지 않습니다.</p>';
+        return;
+      }
+
+      sidebar.innerHTML = reportList.map(report => {
+        let typeLabel = '일일 종합';
+        let typeClass = 'rt-daily';
+        if (report.type === 'hourly') {
+          typeLabel = '단기 경보';
+          typeClass = 'rt-hourly';
+        } else if (report.type === 'backtest') {
+          typeLabel = '시뮬레이션';
+          typeClass = 'rt-backtest';
+        }
+
+        const sizeKb = (report.sizeBytes / 1024).toFixed(1);
+
+        return `
+          <div class="report-item" onclick="viewReport('${report.filename}', this)">
+            <span class="report-item-title">${report.filename}</span>
+            <div class="report-item-meta">
+              <span class="report-type-badge ${typeClass}">${typeLabel}</span>
+              <span>${report.date} (${sizeKb} KB)</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function viewReport(filename, element) {
+      // Toggle active states in sidebar
+      document.querySelectorAll('.report-item').forEach(item => item.classList.remove('active'));
+      if (element) element.classList.add('active');
+
+      const pane = document.getElementById('report-view-pane');
+      pane.innerHTML = `
+        <div style="text-align: center; padding: 5rem;">
+          <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 2rem; color: var(--accent-blue);"></i>
+          <p style="margin-top: 1rem; color: var(--text-muted);">리포트 내용을 불러오고 있습니다...</p>
+        </div>
+      `;
+
+      try {
+        const response = await fetch(`/api/reports/${encodeURIComponent(filename)}`);
+        const data = await response.json();
+        
+        if (response.ok) {
+          // Render Markdown safely into HTML
+          const htmlContent = marked.parse(data.content);
+          pane.innerHTML = `<div class="markdown-body">${htmlContent}</div>`;
+        } else {
+          pane.innerHTML = `<p style="color: var(--color-sell); text-align: center; padding: 2rem;">불러오기 실패: ${data.error}</p>`;
+        }
+      } catch (err) {
+        pane.innerHTML = `<p style="color: var(--color-sell); text-align: center; padding: 2rem;">통신 오류: ${err.message}</p>`;
+      }
+    }
+  </script>
+</body>
+</html>
