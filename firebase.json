@@ -22,13 +22,13 @@
     "codebase": "default",
     "runtime": "nodejs20",
     "ignore": [
-      "node_modules",
-      ".git",
-      ".antigravitycli",
-      "data",
-      "reports",
-      "docs",
-      "src/public"
+      "**/node_modules/**",
+      "**/.git/**",
+      "**/.antigravitycli/**",
+      "/data",
+      "/reports",
+      "/docs",
+      "/src/public"
     ]
   }
 }
