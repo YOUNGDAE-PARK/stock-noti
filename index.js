@@ -10,7 +10,8 @@ import { runWeeklyBatch } from './src/services/weeklyBatch.js';
 export const api = onRequest({
   cors: true,
   timeoutSeconds: 60,
-  memory: '256MiB'
+  memory: '256MiB',
+  invoker: 'public'
 }, app);
 
 // 2. Daily Report Batch: 08:00 AM KST
