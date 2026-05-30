@@ -36,15 +36,30 @@ jobs:
       - name: Deploy to Firebase
         run: |
           if [ -z "${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}" ]; then
-            echo "=========================================================================="
-            echo "❌ ERROR: FIREBASE_SERVICE_ACCOUNT_JSON secret is not set in GitHub!"
-            echo "Please register the service account JSON key as a GitHub Secret."
-            echo "Path: Repository Settings -> Secrets and variables -> Actions -> New repository secret"
-            echo "Name: FIREBASE_SERVICE_ACCOUNT_JSON"
-            echo "=========================================================================="
+            echo "### ❌ ERROR: FIREBASE_SERVICE_ACCOUNT_JSON secret is not set in GitHub!" >> $GITHUB_STEP_SUMMARY
+            echo "Please register the service account JSON key as a GitHub Secret named \`FIREBASE_SERVICE_ACCOUNT_JSON\`." >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
           echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}' > service-account.json
           export GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/service-account.json
-          npx firebase-tools deploy --non-interactive
+          
+          # Run deployment and capture both stdout and stderr
+          echo "Starting Firebase deployment..."
+          npx firebase-tools deploy --non-interactive > deploy.log 2>&1
+          status=$?
+          
+          # Output full log to runner stdout so it's in the step details
+          cat deploy.log
+          
+          if [ $status -ne 0 ]; then
+            echo "### ❌ Firebase Deployment Failed" >> $GITHUB_STEP_SUMMARY
+            echo "Here is the tail of the deployment log:" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`text" >> $GITHUB_STEP_SUMMARY
+            tail -n 40 deploy.log >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            exit $status
+          else
+            echo "### 🎉 Firebase Deployment Succeeded!" >> $GITHUB_STEP_SUMMARY
+          fi
+
 
