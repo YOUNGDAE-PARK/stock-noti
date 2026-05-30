@@ -12,6 +12,7 @@ import { generateDailyReport } from './services/reports/dailyReport.js';
 import { runHourlyAnalysis } from './services/reports/hourlyNoti.js';
 import { startServer } from './services/api.js';
 import { runWeeklyBatch } from './services/weeklyBatch.js';
+import { uploadDbToStorage } from './db/storage_sync.js';
 
 dotenv.config();
 
@@ -47,6 +48,9 @@ async function runEndOfDayCollection() {
     // 3. JaaS Judge Evaluation (Phase 8)
     console.log('[EOD] Running Judge as a Service analysis...');
     await evaluateEvents();
+
+    // Sync database file to Firebase Storage
+    await uploadDbToStorage();
 
     console.log('[EOD Collection] Completed successfully. Ready for morning report.');
   } catch (error) {

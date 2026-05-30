@@ -3,6 +3,7 @@ import path from 'path';
 import { getDb } from '../db/db.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { sendSlackMarkdown } from './slack.js';
+import { uploadDbToStorage } from '../db/storage_sync.js';
 
 const apiKey = process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.replace(/[\r\n\s]/g, '') : null;
 const isGeminiAvailable = apiKey && apiKey !== 'your_gemini_api_key_here' && apiKey !== '';
@@ -21,6 +22,9 @@ export async function runWeeklyBatch(dateStr) {
 
   // 2. Generate Weekly Rebalance Report
   const reportPath = await generateWeeklyRebalanceReport(db, targetDate, recoveredList);
+
+  // Sync database file to Firebase Storage
+  await uploadDbToStorage();
 
   return { success: true, reportPath, recoveredCount: recoveredList.length };
 }

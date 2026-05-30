@@ -5,6 +5,8 @@ import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
 import dotenv from 'dotenv';
 
+import { downloadDbFromStorage } from './storage_sync.js';
+
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -20,10 +22,20 @@ if (!fs.existsSync(dbDir)) {
 }
 
 let dbInstance = null;
+let dbDownloaded = false;
 
 export async function getDb() {
   if (dbInstance) {
     return dbInstance;
+  }
+
+  if (!dbDownloaded) {
+    try {
+      await downloadDbFromStorage();
+      dbDownloaded = true;
+    } catch (err) {
+      console.error('[DB Init] Failed to sync download from storage on startup:', err.message);
+    }
   }
 
   dbInstance = await open({

@@ -7,6 +7,7 @@ import { getDb } from '../db/db.js';
 import { buildCorpDirectory } from '../db/corp_directory.js';
 import { sendSlackMessage } from './slack.js';
 import { runWeeklyBatch } from './weeklyBatch.js';
+import { uploadDbToStorage } from '../db/storage_sync.js';
 
 const app = express();
 app.use(express.json());
@@ -140,6 +141,9 @@ app.post('/api/assets', async (req, res) => {
     // Recalculate weights for the entire portfolio
     await recalculatePortfolioWeights(db);
 
+    // Sync database file to Firebase Storage
+    await uploadDbToStorage();
+
     res.status(201).json({ success: true, message: `Seeded and added asset: ${name}` });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -180,6 +184,9 @@ app.put('/api/assets/:ticker', async (req, res) => {
     // Recalculate weights for the entire portfolio
     await recalculatePortfolioWeights(db);
 
+    // Sync database file to Firebase Storage
+    await uploadDbToStorage();
+
     res.json({ success: true, message: `Updated asset ${ticker}` });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -197,6 +204,9 @@ app.delete('/api/assets/:ticker', async (req, res) => {
     
     // Recalculate weights for the entire portfolio
     await recalculatePortfolioWeights(db);
+
+    // Sync database file to Firebase Storage
+    await uploadDbToStorage();
 
     res.json({ success: true, message: `Deleted asset ${ticker}` });
   } catch (err) {
@@ -405,12 +415,16 @@ app.get('/api/backtest', async (req, res) => {
 // 9. Trigger simulation manually
 app.post('/api/backtest/run', (req, res) => {
   console.log('[API] Triggering Backtest Simulation manually...');
-  exec('node src/test/run_simulation.js', (error, stdout, stderr) => {
+  exec('node src/test/run_simulation.js', async (error, stdout, stderr) => {
     if (error) {
       console.error('[API] Failed to run simulation:', error.message);
       return res.status(500).json({ success: false, error: error.message });
     }
     console.log('[API] Simulation successfully finished.');
+    
+    // Sync database file to Firebase Storage
+    await uploadDbToStorage();
+
     res.json({ success: true, message: 'Simulation finished and database refreshed.' });
   });
 });
@@ -448,6 +462,10 @@ app.post('/api/assets/sync-prices', async (req, res) => {
     const db = await getDb();
     await syncPortfolioPrices(db);
     await recalculatePortfolioWeights(db);
+    
+    // Sync database file to Firebase Storage
+    await uploadDbToStorage();
+
     res.json({ success: true, message: 'Real-time prices and weights successfully synchronized.' });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
