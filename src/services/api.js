@@ -496,6 +496,16 @@ app.post('/api/analysis/run', async (req, res) => {
   }
 });
 
+// 14. Get Notification Schedule
+app.get('/api/schedule', (req, res) => {
+  res.json([
+    { name: '일일 리포트', time: '매일 08:00', icon: 'fa-sun' },
+    { name: '실시간 감시', time: '평일 09:00 - 16:00 (매시)', icon: 'fa-clock' },
+    { name: '장마감 데이터', time: '평일 18:00', icon: 'fa-moon' },
+    { name: '주간 운영 배치', time: '매주 일요일 21:00', icon: 'fa-calendar-days' }
+  ]);
+});
+
 // Serving the SPA router fallback
 app.use((req, res) => {
   res.sendFile(path.join(__dirname, 'src/public/index.html'));

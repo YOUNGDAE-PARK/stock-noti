@@ -62,9 +62,9 @@ export const eodCollectionCron = onSchedule({
   }
 });
 
-// 5. Weekly Operations Batch: Sunday at 09:00 AM KST
+// 5. Weekly Operations Batch: Sunday at 21:00 PM KST
 export const weeklyBatchCron = onSchedule({
-  schedule: '0 9 * * 0',
+  schedule: '0 21 * * 0',
   timeZone: 'Asia/Seoul',
   timeoutSeconds: 300,
   memory: '512MiB'

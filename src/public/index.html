@@ -1019,6 +1019,47 @@
       font-weight: 700;
     }
 
+    /* Schedule Bar Styles */
+    .schedule-bar {
+      background: white;
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow-sm);
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      padding: 0.6rem 1.2rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      gap: 1.5rem;
+      align-items: center;
+      flex-wrap: wrap;
+      font-size: 0.8rem;
+    }
+    .schedule-title {
+      font-weight: 800;
+      color: var(--navy-primary);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding-right: 0.8rem;
+      border-right: 1px solid rgba(0, 0, 0, 0.1);
+    }
+    .schedule-item {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .schedule-item i {
+      color: var(--accent-blue);
+      width: 14px;
+      text-align: center;
+    }
+    .schedule-label {
+      font-weight: 600;
+      color: var(--navy-secondary);
+    }
+    .schedule-time {
+      color: var(--text-muted);
+    }
+
     /* Responsive */
     @media (max-width: 900px) {
       .backtest-summary {
@@ -1075,6 +1116,12 @@
 
   <!-- Main View -->
   <main>
+
+    <!-- Notification Schedule Bar -->
+    <div class="schedule-bar" id="schedule-bar">
+      <div class="schedule-title"><i class="fa-solid fa-bell"></i> 알림 일정</div>
+      <!-- Rendered via JavaScript -->
+    </div>
 
     <!-- View 1: Portfolio -->
     <section id="view-portfolio" class="view active">
@@ -1332,7 +1379,32 @@
       fetchAssets();
       fetchBacktestStats();
       fetchReports();
+      fetchSchedule();
     });
+
+    // Fetch and render notification schedule
+    async function fetchSchedule() {
+      try {
+        const response = await fetch('/api/schedule');
+        const schedule = await response.json();
+        const container = document.getElementById('schedule-bar');
+        
+        const itemsHtml = schedule.map(item => `
+          <div class="schedule-item">
+            <i class="fa-solid ${item.icon}"></i>
+            <span class="schedule-label">${item.name}:</span>
+            <span class="schedule-time">${item.time}</span>
+          </div>
+        `).join('');
+        
+        container.innerHTML = `
+          <div class="schedule-title"><i class="fa-solid fa-bell"></i> 알림 일정</div>
+          ${itemsHtml}
+        `;
+      } catch (err) {
+        console.error('Failed to fetch schedule:', err);
+      }
+    }
 
     // Toggle view layout
     function switchView(viewId) {

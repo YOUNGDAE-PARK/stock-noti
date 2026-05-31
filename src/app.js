@@ -106,8 +106,8 @@ async function startApp() {
   });
   console.log('- Registered Cron: 18:00 EOD Bulk Ingestion and Consolidation (Mon-Fri)');
 
-  // 4. Weekly Operations Batch: Every Sunday at 09:00 AM KST
-  cron.schedule('0 9 * * 0', async () => {
+  // 4. Weekly Operations Batch: Every Sunday at 21:00 PM KST
+  cron.schedule('0 21 * * 0', async () => {
     console.log('[Scheduler] Triggering Weekly operations batch (Weekly Rebalancing & AI repair)...');
     try {
       await runWeeklyBatch();
@@ -115,7 +115,7 @@ async function startApp() {
       console.error('Failed to run weekly batch via cron:', err.message);
     }
   });
-  console.log('- Registered Cron: 9:00 AM Weekly Operations Batch (Sunday)');
+  console.log('- Registered Cron: 21:00 PM Weekly Operations Batch (Sunday)');
 
   console.log('\nStock-Noti Daemon is active and running in background.');
 }
