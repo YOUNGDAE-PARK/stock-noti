@@ -38,24 +38,26 @@ jobs:
           echo "NAVER_CLIENT_SECRET=${{ secrets.NAVER_CLIENT_SECRET }}" >> .env
           echo "KRX_API_KEY=${{ secrets.KRX_API_KEY }}" >> .env
 
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}'
+
       - name: Deploy to Firebase
         run: |
-          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}' > service-account.json
-          export GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/service-account.json
-          
-          # Run deployment and capture both stdout and stderr
-          echo "Starting Firebase deployment..."
-          npx firebase-tools deploy --non-interactive > deploy.log 2>&1
+          echo "Starting Firebase deployment with official tools..."
+          npx firebase-tools deploy --non-interactive --project stock-f2ee7 > deploy.log 2>&1
           status=$?
           
-          # Output full log to runner stdout so it's in the step details
+          # Print log to console for debugging
           cat deploy.log
           
           if [ $status -ne 0 ]; then
             echo "### ❌ Firebase Deployment Failed" >> $GITHUB_STEP_SUMMARY
-            echo "Here is the tail of the deployment log:" >> $GITHUB_STEP_SUMMARY
+            echo "#### Error Log (Tail):" >> $GITHUB_STEP_SUMMARY
             echo "\`\`\`text" >> $GITHUB_STEP_SUMMARY
-            tail -n 40 deploy.log >> $GITHUB_STEP_SUMMARY
+            tail -n 50 deploy.log >> $GITHUB_STEP_SUMMARY
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
             exit $status
           else
