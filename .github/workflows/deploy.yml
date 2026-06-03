@@ -40,11 +40,6 @@ jobs:
 
       - name: Deploy to Firebase
         run: |
-          if [ -z "${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}" ]; then
-            echo "### ❌ ERROR: FIREBASE_SERVICE_ACCOUNT_JSON secret is not set in GitHub!" >> $GITHUB_STEP_SUMMARY
-            echo "Please register the service account JSON key as a GitHub Secret named \`FIREBASE_SERVICE_ACCOUNT_JSON\`." >> $GITHUB_STEP_SUMMARY
-            exit 1
-          fi
           echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}' > service-account.json
           export GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/service-account.json
           
