@@ -40,17 +40,22 @@ jobs:
           
           # Parse Firebase Client Config from a single JSON secret
           # Expected format: { "apiKey": "...", "authDomain": "...", ... }
-          CONFIG='${{ secrets.FIREBASE_CLIENT_CONFIG_JSON }}'
-          if [ ! -z "$CONFIG" ]; then
-            echo "FB_CLIENT_API_KEY=$(echo $CONFIG | jq -r '.apiKey')" >> .env
-            echo "FB_CLIENT_AUTH_DOMAIN=$(echo $CONFIG | jq -r '.authDomain')" >> .env
-            echo "FB_CLIENT_PROJECT_ID=$(echo $CONFIG | jq -r '.projectId')" >> .env
-            echo "FB_CLIENT_STORAGE_BUCKET=$(echo $CONFIG | jq -r '.storageBucket')" >> .env
-            echo "FB_CLIENT_MESSAGING_SENDER_ID=$(echo $CONFIG | jq -r '.messagingSenderId')" >> .env
-            echo "FB_CLIENT_APP_ID=$(echo $CONFIG | jq -r '.appId')" >> .env
+          CONFIG_JSON='${{ secrets.FIREBASE_CLIENT_CONFIG_JSON }}'
+          if [ ! -z "$CONFIG_JSON" ]; then
+            echo "Parsing FIREBASE_CLIENT_CONFIG_JSON..."
+            echo "FB_CLIENT_API_KEY=$(echo $CONFIG_JSON | jq -r '.apiKey')" >> .env
+            echo "FB_CLIENT_AUTH_DOMAIN=$(echo $CONFIG_JSON | jq -r '.authDomain')" >> .env
+            echo "FB_CLIENT_PROJECT_ID=$(echo $CONFIG_JSON | jq -r '.projectId')" >> .env
+            echo "FB_CLIENT_STORAGE_BUCKET=$(echo $CONFIG_JSON | jq -r '.storageBucket')" >> .env
+            echo "FB_CLIENT_MESSAGING_SENDER_ID=$(echo $CONFIG_JSON | jq -r '.messagingSenderId')" >> .env
+            echo "FB_CLIENT_APP_ID=$(echo $CONFIG_JSON | jq -r '.appId')" >> .env
           else
             echo "### ⚠️ WARNING: FIREBASE_CLIENT_CONFIG_JSON is missing!" >> $GITHUB_STEP_SUMMARY
           fi
+
+          # Verify .env contents (masking values)
+          echo "--- Created .env file (masked) ---"
+          sed 's/=.*/=******/' .env
 
       - name: Authenticate to Google Cloud
         id: auth

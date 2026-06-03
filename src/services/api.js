@@ -24,6 +24,7 @@ app.use(express.static(path.join(__dirname, '../public')));
 
 // 1. Config & System
 app.get('/api/config', (req, res) => {
+  console.log('[API Config] Requested. API_KEY present:', !!process.env.FB_CLIENT_API_KEY);
   res.json({
     apiKey: process.env.FB_CLIENT_API_KEY,
     authDomain: process.env.FB_CLIENT_AUTH_DOMAIN,

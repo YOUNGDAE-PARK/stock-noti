@@ -1,5 +1,10 @@
 import { onRequest } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
+import dotenv from 'dotenv';
+
+// Load environment variables immediately
+dotenv.config();
+
 import { app } from './src/services/api.js';
 import { runEndOfDayCollection } from './src/app.js';
 import { generateDailyReport } from './src/services/reports/dailyReport.js';
