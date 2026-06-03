@@ -24,15 +24,23 @@ app.use(express.static(path.join(__dirname, '../public')));
 
 // 1. Config & System
 app.get('/api/config', (req, res) => {
-  console.log('[API Config] Requested. API_KEY present:', !!process.env.FB_CLIENT_API_KEY);
-  res.json({
+  const config = {
     apiKey: process.env.FB_CLIENT_API_KEY,
     authDomain: process.env.FB_CLIENT_AUTH_DOMAIN,
     projectId: process.env.FB_CLIENT_PROJECT_ID,
     storageBucket: process.env.FB_CLIENT_STORAGE_BUCKET,
     messagingSenderId: process.env.FB_CLIENT_MESSAGING_SENDER_ID,
     appId: process.env.FB_CLIENT_APP_ID
-  });
+  };
+
+  const diagnostics = {
+    env_keys: Object.keys(process.env).filter(k => k.startsWith('FB_CLIENT_') || k === 'GEMINI_API_KEY'),
+    cwd: process.cwd(),
+    node_env: process.env.NODE_ENV
+  };
+
+  console.log('[API Config] Requested.', diagnostics);
+  res.json({ ...config, _diagnostics: diagnostics });
 });
 
 app.get('/api/schedule', authenticateUser, (req, res) => {
