@@ -46,23 +46,8 @@ jobs:
 
       - name: Deploy to Firebase
         run: |
-          echo "Starting Firebase deployment with official tools..."
-          npx firebase-tools deploy --non-interactive --project stock-f2ee7 > deploy.log 2>&1
-          status=$?
-          
-          # Print log to console for debugging
-          cat deploy.log
-          
-          if [ $status -ne 0 ]; then
-            echo "### ❌ Firebase Deployment Failed" >> $GITHUB_STEP_SUMMARY
-            echo "#### Error Log (Tail):" >> $GITHUB_STEP_SUMMARY
-            echo "\`\`\`text" >> $GITHUB_STEP_SUMMARY
-            tail -n 50 deploy.log >> $GITHUB_STEP_SUMMARY
-            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-            exit $status
-          else
-            echo "### 🎉 Firebase Deployment Succeeded!" >> $GITHUB_STEP_SUMMARY
-          fi
+          echo "Starting Firebase deployment with verbose logging..."
+          npx firebase-tools deploy --non-interactive --project stock-f2ee7 --debug
 
       - name: Push Logs to git branch on failure
         if: failure()
