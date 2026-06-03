@@ -26,36 +26,45 @@ jobs:
         run: npm ci
 
       - name: Create Production .env file
+        env:
+          CONFIG_JSON: ${{ secrets.FIREBASE_CLIENT_CONFIG_JSON }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_WEEKLY_URL: ${{ secrets.SLACK_WEBHOOK_WEEKLY_URL }}
+          SLACK_WEBHOOK_URGENT_URL: ${{ secrets.SLACK_WEBHOOK_URGENT_URL }}
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+          KRX_API_KEY: ${{ secrets.KRX_API_KEY }}
         run: |
           echo "DATABASE_PATH=/tmp/stock_noti.db" >> .env
           echo "REPORTS_DIR=/tmp/reports" >> .env
-          echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
-          echo "SLACK_WEBHOOK_URL=${{ secrets.SLACK_WEBHOOK_URL }}" >> .env
-          echo "SLACK_WEBHOOK_WEEKLY_URL=${{ secrets.SLACK_WEBHOOK_WEEKLY_URL }}" >> .env
-          echo "SLACK_WEBHOOK_URGENT_URL=${{ secrets.SLACK_WEBHOOK_URGENT_URL }}" >> .env
-          echo "DART_API_KEY=${{ secrets.DART_API_KEY }}" >> .env
-          echo "NAVER_CLIENT_ID=${{ secrets.NAVER_CLIENT_ID }}" >> .env
-          echo "NAVER_CLIENT_SECRET=${{ secrets.NAVER_CLIENT_SECRET }}" >> .env
-          echo "KRX_API_KEY=${{ secrets.KRX_API_KEY }}" >> .env
+          echo "GEMINI_API_KEY=$GEMINI_API_KEY" >> .env
+          echo "SLACK_WEBHOOK_URL=$SLACK_WEBHOOK_URL" >> .env
+          echo "SLACK_WEBHOOK_WEEKLY_URL=$SLACK_WEBHOOK_WEEKLY_URL" >> .env
+          echo "SLACK_WEBHOOK_URGENT_URL=$SLACK_WEBHOOK_URGENT_URL" >> .env
+          echo "DART_API_KEY=$DART_API_KEY" >> .env
+          echo "NAVER_CLIENT_ID=$NAVER_CLIENT_ID" >> .env
+          echo "NAVER_CLIENT_SECRET=$NAVER_CLIENT_SECRET" >> .env
+          echo "KRX_API_KEY=$KRX_API_KEY" >> .env
           
-          # Parse Firebase Client Config from a single JSON secret
-          # Expected format: { "apiKey": "...", "authDomain": "...", ... }
-          CONFIG_JSON='${{ secrets.FIREBASE_CLIENT_CONFIG_JSON }}'
+          # Parse Firebase Client Config safely
           if [ ! -z "$CONFIG_JSON" ]; then
             echo "Parsing FIREBASE_CLIENT_CONFIG_JSON..."
-            echo "FB_CLIENT_API_KEY=$(echo $CONFIG_JSON | jq -r '.apiKey')" >> .env
-            echo "FB_CLIENT_AUTH_DOMAIN=$(echo $CONFIG_JSON | jq -r '.authDomain')" >> .env
-            echo "FB_CLIENT_PROJECT_ID=$(echo $CONFIG_JSON | jq -r '.projectId')" >> .env
-            echo "FB_CLIENT_STORAGE_BUCKET=$(echo $CONFIG_JSON | jq -r '.storageBucket')" >> .env
-            echo "FB_CLIENT_MESSAGING_SENDER_ID=$(echo $CONFIG_JSON | jq -r '.messagingSenderId')" >> .env
-            echo "FB_CLIENT_APP_ID=$(echo $CONFIG_JSON | jq -r '.appId')" >> .env
+            echo "FB_CLIENT_API_KEY=$(echo $CONFIG_JSON | jq -r '.apiKey // ""')" >> .env
+            echo "FB_CLIENT_AUTH_DOMAIN=$(echo $CONFIG_JSON | jq -r '.authDomain // ""')" >> .env
+            echo "FB_CLIENT_PROJECT_ID=$(echo $CONFIG_JSON | jq -r '.projectId // ""')" >> .env
+            echo "FB_CLIENT_STORAGE_BUCKET=$(echo $CONFIG_JSON | jq -r '.storageBucket // ""')" >> .env
+            echo "FB_CLIENT_MESSAGING_SENDER_ID=$(echo $CONFIG_JSON | jq -r '.messagingSenderId // ""')" >> .env
+            echo "FB_CLIENT_APP_ID=$(echo $CONFIG_JSON | jq -r '.appId // ""')" >> .env
           else
             echo "### ⚠️ WARNING: FIREBASE_CLIENT_CONFIG_JSON is missing!" >> $GITHUB_STEP_SUMMARY
           fi
 
-          # Verify .env contents (masking values)
-          echo "--- Created .env file (masked) ---"
-          sed 's/=.*/=******/' .env
+          # Verification Log (Masked)
+          echo "--- Deployment Environment Summary ---"
+          grep -v "KEY\|SECRET\|JSON\|ID" .env || true
+          echo "FB_CLIENT_API_KEY is $(if [ -z "$(grep FB_CLIENT_API_KEY .env | cut -d= -f2)" ]; then echo 'EMPTY'; else echo 'PRESENT'; fi)"
 
       - name: Authenticate to Google Cloud
         id: auth
