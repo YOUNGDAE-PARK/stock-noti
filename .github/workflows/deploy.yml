@@ -42,12 +42,12 @@ jobs:
           # Expected format: { "apiKey": "...", "authDomain": "...", ... }
           CONFIG='${{ secrets.FIREBASE_CLIENT_CONFIG_JSON }}'
           if [ ! -z "$CONFIG" ]; then
-            echo "FIREBASE_API_KEY=$(echo $CONFIG | jq -r '.apiKey')" >> .env
-            echo "FIREBASE_AUTH_DOMAIN=$(echo $CONFIG | jq -r '.authDomain')" >> .env
-            echo "FIREBASE_PROJECT_ID=$(echo $CONFIG | jq -r '.projectId')" >> .env
-            echo "FIREBASE_STORAGE_BUCKET=$(echo $CONFIG | jq -r '.storageBucket')" >> .env
-            echo "FIREBASE_MESSAGING_SENDER_ID=$(echo $CONFIG | jq -r '.messagingSenderId')" >> .env
-            echo "FIREBASE_APP_ID=$(echo $CONFIG | jq -r '.appId')" >> .env
+            echo "FB_CLIENT_API_KEY=$(echo $CONFIG | jq -r '.apiKey')" >> .env
+            echo "FB_CLIENT_AUTH_DOMAIN=$(echo $CONFIG | jq -r '.authDomain')" >> .env
+            echo "FB_CLIENT_PROJECT_ID=$(echo $CONFIG | jq -r '.projectId')" >> .env
+            echo "FB_CLIENT_STORAGE_BUCKET=$(echo $CONFIG | jq -r '.storageBucket')" >> .env
+            echo "FB_CLIENT_MESSAGING_SENDER_ID=$(echo $CONFIG | jq -r '.messagingSenderId')" >> .env
+            echo "FB_CLIENT_APP_ID=$(echo $CONFIG | jq -r '.appId')" >> .env
           else
             echo "### ⚠️ WARNING: FIREBASE_CLIENT_CONFIG_JSON is missing!" >> $GITHUB_STEP_SUMMARY
           fi

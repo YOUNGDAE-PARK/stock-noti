@@ -13,7 +13,7 @@ let hasValidCredentials = false;
 
 // Initialize Firebase Admin
 const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-const projectId = process.env.FIREBASE_PROJECT_ID || 'stock-f2ee7';
+const projectId = process.env.FB_CLIENT_PROJECT_ID || 'stock-f2ee7';
 
 if (serviceAccountJson) {
   try {
