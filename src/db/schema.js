@@ -14,6 +14,8 @@ export async function initializeSchema(db) {
       name TEXT NOT NULL,
       market TEXT NOT NULL,
       holding_weight REAL DEFAULT 0.0,
+      target_weight REAL DEFAULT 0.0,
+      max_weight REAL DEFAULT 100.0,
       avg_price REAL DEFAULT 0.0,
       holding_qty REAL DEFAULT 0.0,
       investment_thesis TEXT,
@@ -116,42 +118,37 @@ export async function initializeSchema(db) {
       corp_code TEXT NOT NULL
     )
   `);
+
+  // 8. user_config table for personal settings
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS user_config (
+      config_key TEXT PRIMARY KEY,
+      config_value TEXT,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // 9. portfolio_delta_log table for tracking user actions
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS portfolio_delta_log (
+      log_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      ticker TEXT NOT NULL,
+      asset_name TEXT,
+      action_type TEXT NOT NULL CHECK(action_type IN ('ADD', 'UPDATE', 'DELETE')),
+      old_qty REAL,
+      new_qty REAL,
+      delta_qty REAL,
+      timestamp TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(ticker) REFERENCES portfolio_asset(ticker) ON DELETE CASCADE
+    )
+  `);
 }
 
 /**
  * Seeds default assets into the portfolio_asset table if empty.
  */
 export async function seedDefaultAssets(db) {
-  const count = await db.get('SELECT count(*) as count FROM portfolio_asset');
-  if (count.count > 0) {
-    return;
-  }
-
-  console.log('[DB Init] Seeding default portfolio assets...');
-  for (const asset of initialAssets) {
-    try {
-      await db.run(
-        `INSERT INTO portfolio_asset (
-          asset_type, ticker, name, market, holding_weight, avg_price, 
-          holding_qty, investment_thesis, risk_keywords, watch_level, is_active
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          asset.asset_type,
-          asset.ticker,
-          asset.name,
-          asset.market,
-          asset.holding_weight,
-          asset.avg_price,
-          asset.holding_qty,
-          asset.investment_thesis,
-          asset.risk_keywords,
-          asset.watch_level,
-          asset.is_active
-        ]
-      );
-    } catch (err) {
-      console.error(`[DB Init] Failed to seed asset ${asset.name}:`, err.message);
-    }
-  }
-  console.log('[DB Init] Default seeding completed.');
+  // Disabled default seeding to ensure user isolation is obvious.
+  // Users now start with an empty portfolio.
+  console.log('[DB Init] Portfolio is empty. Ready for user input.');
 }

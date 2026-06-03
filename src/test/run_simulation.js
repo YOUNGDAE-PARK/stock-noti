@@ -140,7 +140,25 @@ const uniqueEventDates = [
 
 async function runSimulation() {
   console.log('=== STARTING NEW HISTORICAL DATA SIMULATION WITH T+5/T+20 BACKTEST ===');
-  const db = await getDb();
+  
+  const testUser = { uid: 'test-user-sim', email: 'test-sim@example.com' };
+  const db = await getDb(testUser.uid, testUser.email);
+
+  // Ensure portfolio assets exist for simulation tickers
+  const simTickers = [...new Set(mockRawItems.map(i => i.ticker))];
+  for (const ticker of simTickers) {
+    const asset = mockRawItems.find(i => i.ticker === ticker);
+    await db.run(
+      `INSERT OR REPLACE INTO portfolio_asset (ticker, name, asset_type, market, is_active, holding_weight, avg_price, holding_qty)
+       VALUES (?, ?, ?, 'KOSPI', 1, 10, 0, 0)`,
+      [ticker, asset.ticker === '485620' ? 'TIGER 미국우주테크' : 
+               asset.ticker === '064400' ? 'LG CNS' : 
+               asset.ticker === '009150' ? '삼성전기' : 
+               asset.ticker === '475960' ? '토모큐브' : 
+               asset.ticker === '064760' ? '티씨케이' : '현대모비스', 
+       asset.ticker === '485620' ? 'etf' : 'stock']
+    );
+  }
 
   // Clear previous runs
   console.log('Clearing database tables for clean simulation...');
@@ -191,18 +209,18 @@ async function runSimulation() {
 
   // Run Consolidator
   console.log('\n--- Step 1: Running Event Consolidation ---');
-  await consolidateEvents();
+  await consolidateEvents(testUser.uid);
 
   // Run JaaS Evaluator
   console.log('\n--- Step 2: Running Judge as a Service (JaaS) ---');
-  await evaluateEvents();
+  await evaluateEvents(testUser.uid);
 
   // Generate Reports
   console.log('\n--- Step 3: Generating Reports (Daily and Hourly Alerts) ---');
   for (const date of uniqueEventDates) {
     console.log(`\nProcessing outputs for date: ${date}`);
-    const dailyPath = await generateDailyReport(date);
-    const hourlyPath = await runHourlyAnalysis(date, true);
+    const dailyPath = await generateDailyReport(date, testUser);
+    const hourlyPath = await runHourlyAnalysis(date, true, testUser);
     
     if (dailyPath) console.log(`  -> Daily report generated: ${dailyPath}`);
     if (hourlyPath) console.log(`  -> 🚨 Hourly warning generated: ${hourlyPath}`);

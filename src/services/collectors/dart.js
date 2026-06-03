@@ -5,14 +5,14 @@ import { calculateRawHash } from '../consolidator.js';
 
 dotenv.config();
 
-export async function collectDartDisclosures(startDateStr, endDateStr) {
+export async function collectDartDisclosures(startDateStr, endDateStr, userId = null) {
   const apiKey = process.env.DART_API_KEY;
   if (!apiKey) {
     console.warn('⚠️ DART_API_KEY is missing. Skipping DART collection.');
     return [];
   }
 
-  const db = await getDb();
+  const db = await getDb(userId);
   
   // Get active stock assets with corp_code
   const assets = await db.all(

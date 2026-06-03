@@ -5,236 +5,203 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 const apiKey = process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.replace(/[\r\n\s]/g, '') : null;
 const isGeminiAvailable = apiKey && apiKey !== 'your_gemini_api_key_here' && apiKey !== '';
 
-export async function evaluateEvents() {
-  const db = await getDb();
+export async function evaluateEvents(userId = null) {
+  const db = await getDb(userId);
 
-  // Get all events needing review, including the market of the asset
-  const events = await db.all(`
-    SELECT e.*, a.investment_thesis, a.risk_keywords, a.name as asset_name, a.market
+  // Get all events needing review with asset and portfolio context
+  const rawEvents = await db.all(`
+    SELECT e.*, a.investment_thesis, a.risk_keywords, a.name as asset_name, a.market,
+           a.holding_weight, a.target_weight, a.max_weight, a.asset_type
     FROM investment_event e
     JOIN portfolio_asset a ON e.ticker = a.ticker
     WHERE e.status = 'needs_review'
   `);
 
-  console.log(`JaaS Evaluator: Found ${events.length} events to analyze.`);
-
-  // Initialize Gemini if available
-  let genAI = null;
-  let model = null;
-  if (isGeminiAvailable) {
-    try {
-      console.log(`DEBUG API KEY: "${apiKey.substring(0, 10)}..." (Length: ${apiKey.length})`);
-      genAI = new GoogleGenerativeAI(apiKey);
-      // gemini-2.5-flash is active and available on your API key
-      model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-      console.log('Gemini API is active. Utilizing LLM for investment event judgment.');
-    } catch (err) {
-      console.warn('Failed to initialize Gemini Generative AI SDK:', err.message);
-    }
-  } else {
-    console.log('No GEMINI_API_KEY found or it is a placeholder. Fallback to Rule-based engine.');
+  if (rawEvents.length === 0) {
+    console.log('JaaS Evaluator: No events needing review.');
+    return;
   }
 
-  for (const event of events) {
-    let direction = 'neutral';
-    let level = 'low';
-    let signal = '보유';
-    let reason = '룰 기반 판단 모델에 의한 신호 자동 산출';
-    let analyzedByLLM = false;
+  // 1. Gather all required context (Market indices, etc.)
+  const dates = [...new Set(rawEvents.map(e => e.event_date))];
+  const marketContext = {};
+  for (const date of dates) {
+    const indices = await db.all('SELECT ticker, change_pct FROM market_snapshot_daily WHERE date = ? AND asset_type = "index"', [date]);
+    marketContext[date] = indices.reduce((acc, cur) => {
+      acc[cur.ticker] = cur.change_pct;
+      return acc;
+    }, {});
+  }
 
-    // 1. Check price reaction on the event date
-    const marketData = await db.get(
-      'SELECT close_price, change_pct, volume, trading_value FROM market_snapshot_daily WHERE ticker = ? AND date = ?',
-      [event.ticker, event.event_date]
+  // 2. Identify "Trivial" events for auto-processing (Noise Reduction - Strategy 4)
+  const trivialTypes = [
+    '단순 정정', '기타 경영사항(안내)', '결산실적공시예고', '현저한 시황변동에 대한 답변', 
+    '기업설명회(IR) 개최', '사외이사의 선임·해임 또는 중도퇴임에 관한 신고'
+  ];
+
+  // 2.1 Fetch recent portfolio deltas for AI context (last 3 days)
+  const recentDeltas = await db.all(`
+    SELECT ticker, asset_name, action_type, delta_qty, timestamp 
+    FROM portfolio_delta_log 
+    WHERE timestamp >= date('now', '-3 days')
+    ORDER BY timestamp DESC
+  `);
+
+  const deltaContext = recentDeltas.map(d => 
+    `- ${d.timestamp}: ${d.asset_name} ${d.action_type} (수량변화: ${d.delta_qty})`
+  ).join('\n');
+
+  const processedEvents = [];
+  const aiTargets = [];
+
+  for (const e of rawEvents) {
+    // Get asset market data
+    const assetMarket = await db.get(
+      'SELECT change_pct, volume FROM market_snapshot_daily WHERE ticker = ? AND date = ?',
+      [e.ticker, e.event_date]
     );
+    e.change_pct = assetMarket ? assetMarket.change_pct : 0;
+    e.volume = assetMarket ? assetMarket.volume : 0;
 
-    const changePct = marketData ? marketData.change_pct : 0;
-    const volume = marketData ? marketData.volume : 0;
-    console.log(`- Evaluating: [${event.asset_name}] "${event.event_title}" on ${event.event_date} (Price change: ${changePct}%)`);
+    // Check market index for relative performance
+    const indexTicker = e.market === 'KOSPI' ? 'KOSPI' : 'KOSDAQ';
+    e.market_change = marketContext[e.event_date]?.[indexTicker] || 0;
+    e.excess_return = e.change_pct - e.market_change;
 
-    // 2. Classify using LLM if available
-    if (model) {
-      try {
+    const isTrivialType = trivialTypes.some(type => e.event_type.includes(type) || e.event_title.includes(type));
+    const isNoMarketImpact = Math.abs(e.change_pct) < 0.2; // Very small impact
+
+    if (isTrivialType && isNoMarketImpact) {
+      processedEvents.push({
+        ...e,
+        direction: 'neutral',
+        level: 'low',
+        signal: '보유',
+        reason: `[시스템 자동처리] 시장 영향이 미미한 단순 행정성 공시로 판정됨. (상대수익률: ${e.excess_return.toFixed(2)}%)`
+      });
+    } else {
+      aiTargets.push(e);
+    }
+  }
+
+  // 3. Batch AI Evaluation (Professional Multi-layered Judgment)
+  if (isGeminiAvailable && aiTargets.length > 0) {
+    try {
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ 
+        model: 'gemini-2.5-flash',
+        generationConfig: { temperature: 0.2 } 
+      });
+
+      const chunkSize = 10;
+      for (let i = 0; i < aiTargets.length; i += chunkSize) {
+        const chunk = aiTargets.slice(i, i + chunkSize);
+        
         const prompt = `
-당신은 전문 주식 분석가이자 포트폴리오 매니저입니다.
-아래 주식 종목과 해당 종목에 발생한 투자 관련 이벤트 정보를 기반으로 이 이벤트가 종목의 중장기(1주일~1개월) 투자 판단에 미칠 임팩트를 평가하고 의사결정 신호를 내리십시오.
+당신은 베테랑 펀드매니저이자 투자 전략가입니다. 아래 [투자 이벤트 목록]을 분석하여 전문적인 판단 신호와 심층 근거를 도출하십시오.
 
-[자산 정보]
-- 종목명: ${event.asset_name}
-- 티커: ${event.ticker}
-- 핵심 투자 아이디어: ${event.investment_thesis}
-- 핵심 리스크 요인: ${event.risk_keywords}
+[핵심 판단 지침]
+1. **Investment Thesis Alignment**: 뉴스가 사용자의 '보유이유'를 강화하는지, 아니면 핵심 논리를 훼손하는지 최우선으로 보십시오.
+2. **Relative Performance**: 절대 등락률이 아닌 시장 지수 대비 '초과 수익률(Excess Return)'과 거래량을 기반으로 시장의 진정한 해석을 파악하십시오. (예: 호재에도 지수 대비 약하면 Sell on News 가능성)
+3. **Portfolio Constraints**: 현재 비중이 목표 비중을 초과했거나 최대 비중에 근접했다면, 아무리 좋은 뉴스라도 '추매검토' 대신 '보유' 또는 '비중축소'를 권고하십시오.
+4. **Valuation & Risk**: 리스크 키워드와 연관된 뉴스인 경우 가중치를 두어 분석하고, 밸류에이션 부담이 느껴지는 구간(급등 후 등)인지 고려하십시오.
+5. **Recent Actions Context**: 아래 [최근 포트폴리오 변경 내역]을 참고하여, 사용자의 최근 매수/매도 행보와 일관성 있는 조언을 제공하거나, 최근 행동 이후 발생한 이벤트에 대해 피드백을 주십시오.
+6. **Structural Reasoning**: 단순히 찬성 근거만 나열하지 말고, 반대 논리(Cons)와 현재 알 수 없는 불확실성(Uncertainty)을 반드시 포함하십시오.
 
-[이벤트 정보]
-- 이벤트 일자: ${event.event_date}
-- 이벤트 유형: ${event.event_type}
-- 이벤트 제목: ${event.event_title}
-- 원천 정보 형태: ${event.primary_source_type}
+[최근 포트폴리오 변경 내역 (최근 3일)]
+${deltaContext || '최근 변경 내역 없음'}
 
-[당일 주가 반응 메타데이터]
-- 당일 주가 등락률: ${changePct}%
-- 당일 거래량: ${volume ? volume.toLocaleString() : 'N/A'}
+[투자 이벤트 목록]
+${chunk.map((e, idx) => `
+ID: ${idx}
+- 종목: ${e.asset_name} (${e.ticker}) | 비중: 현재 ${e.holding_weight}% / 목표 ${e.target_weight}% (최대 ${e.max_weight}%)
+- 보유이유: ${e.investment_thesis}
+- 리스크요인: ${e.risk_keywords}
+- 이벤트: [${e.event_type}] ${e.event_title} (출처: ${e.primary_source_type})
+- 시장반응: 종목 ${e.change_pct}% | 지수 ${e.market_change}% | 초과수익 ${e.excess_return.toFixed(2)}% | 거래량 ${e.volume.toLocaleString()}
+`).join('\n---\n')}
 
-[판단 지침]
-1. 단기적인 하루 변동률에만 함몰되지 말고, 해당 종목이 가진 장기적 투자 아이디어와 핵심 리스크 요인에 비추어 이 이벤트가 가진 중장기(최소 1주일에서 한 달 이상)적 임팩트의 방향성과 강도를 합리적으로 추론하십시오.
-2. **디버전스 필터 (Sell on News 감지)**: 실적 호조, 수주, 배당 등 명백한 호재가 터졌는데도 당일 주가가 유의미하게 하락한 경우(당일 주가 등락률 < -1.0%)는 강력한 재료 소멸 신호이므로 즉시 **"비중축소"** 신호를 내리십시오. (단, 소폭 하락인 경우 보수적으로 보되 "보유"나 "관찰"로 유연하게 판정하십시오.)
-3. **구조적 리스크 및 수급 밸런싱**: 
-   - 리스크 요인에 '경쟁사 진입', '특허 만료' 등 펀더멘털의 영구적 손상 우려가 명시된 기업(예: 티씨케이)은, 호재가 터지더라도 당일 상승률이 미온적(+5.0% 미만)이면 차익실현 덤핑 확률이 매우 높으므로 **"비중축소"**를 내어 보수적으로 관리하십시오.
-   - 그러나 위와 같은 핵심적인 경쟁력 훼손 위협이 등록되어 있지 않은 일반 기업이 호실적(예: 어닝 서프라이즈), 대형 수주 계약, 혹은 강력한 자사주 매입/소각 발표 등의 호재를 내놓았고 당일 주가가 양수(> 0.0%)로 마감했다면, 비록 상승폭이 5% 미만으로 작더라도 이는 중장기 우상향의 첫 단추이므로 성급하게 비중축소를 내리지 말고 **"추매검토"** 또는 **"보유"** 신호를 내리십시오.
-4. 신호 종류(decision_signal)는 반드시 다음 5가지 중 하나여야 합니다:
-   - '매도검토' (강한 악재, 즉각적 위험 회피)
-   - '비중축소' (재료 소멸, 구조적 우려 하의 미온적 상승 등 위험 증가)
-   - '보유' (평이한 상황 혹은 큰 변화 없음)
-   - '추매검토' (명확한 실적 개선, 큰 규모 수주 등 강력한 펀더멘털 개선 및 합리적 돌파)
-   - '관찰' (바이오 벤처/신규 상장 등 고위험 자산의 실적 개선 시 지속성 검증 단계)
-5. 임팩트 방향(direction)은 다음 3가지 중 하나여야 합니다:
-   - 'positive' (긍정적)
-   - 'negative' (부정적)
-   - 'neutral' (중립적)
-6. 임팩트 수준(level)은 다음 3가지 중 하나여야 합니다:
-   - 'high'
-   - 'medium'
-   - 'low'
-
-반드시 아래 JSON 형식으로만 응답하고 다른 설명 텍스트나 markdown 블록(\`\`\`json)은 생략하거나 지워주십시오. JSON 파싱이 가능해야 합니다:
-{
-  "direction": "positive | negative | neutral",
-  "level": "high | medium | low",
-  "signal": "매도검토 | 비중축소 | 보유 | 추매검토 | 관찰",
-  "reason": "한글로 2~3문장 요약된 명확한 판단 근거"
-}
+반드시 아래 JSON 배열 형식으로만 응답하십시오:
+[
+  {
+    "id": 0,
+    "direction": "positive | negative | neutral",
+    "level": "high | medium | low",
+    "signal": "매도검토 | 비중축소 | 보유 | 추매검토 | 관찰",
+    "thesis_impact": "강화 | 중립 | 훼손",
+    "confidence": 1~5,
+    "summary": "핵심 판단 요약 (1문장)",
+    "pros": ["근거1", "근거2"],
+    "cons": ["반대논리/리스크1"],
+    "uncertainties": ["미확인 사항"],
+    "next_check": "향후 모니터링 포인트"
+  }
+]
 `;
 
         const result = await model.generateContent(prompt);
-        const responseText = result.response.text();
-        
-        // Clean JSON formatting if LLM wrapped it in markdown
-        const cleanedJson = responseText
-          .replace(/```json/g, '')
-          .replace(/```/g, '')
-          .trim();
+        const responseText = result.response.text().replace(/```json/g, '').replace(/```/g, '').trim();
+        const llmResults = JSON.parse(responseText);
 
-        const llmResult = JSON.parse(cleanedJson);
-        
-        // Validate options to prevent parser errors
-        if (
-          ['positive', 'negative', 'neutral'].includes(llmResult.direction) &&
-          ['high', 'medium', 'low'].includes(llmResult.level) &&
-          ['매도검토', '비중축소', '보유', '추매검토', '관찰'].includes(llmResult.signal)
-        ) {
-          direction = llmResult.direction;
-          level = llmResult.level;
-          signal = llmResult.signal;
-          reason = llmResult.reason || 'LLM에 의한 판단 근거 분석 완료';
-          analyzedByLLM = true;
-        }
-      } catch (err) {
-        console.warn(`[Gemini Evaluator] Failed to analyze event "${event.event_title}" using LLM. Falling back to rules. Error:`, err.message);
-      }
-    }
+        for (const res of llmResults) {
+          const e = chunk[res.id];
+          if (!e) continue;
 
-    // 3. Fallback to Rule-based if LLM is unavailable or failed
-    if (!analyzedByLLM) {
-      const type = event.event_type;
+          // Format professional reason string
+          const fullReason = `
+[판단 요약] ${res.summary}
+[Thesis 영향] ${res.thesis_impact} (신뢰도: ${res.confidence}/5)
 
-      if (['실적 호조', '수주 / 공급계약', '자사주 / 배당'].includes(type)) {
-        direction = 'positive';
-        level = Math.abs(changePct) > 3 ? 'high' : 'medium';
-        
-        const riskKeywordsList = (event.risk_keywords || '').split(',').map(k => k.trim().toLowerCase());
-        const hasCompetitorRisk = riskKeywordsList.some(k => k.includes('경쟁사') || k.includes('특허'));
-        const hasBiotechRisk = riskKeywordsList.some(k => k.includes('바이오') || k.includes('흑자 전환 지연') || k.includes('예산 삭감'));
+● 긍정 요인: ${res.pros.join(', ')}
+● 리스크 요인: ${res.cons.join(', ')}
+● 불확실성: ${res.uncertainties.join(', ')}
+● 향후 체크: ${res.next_check}
+`.trim();
 
-        if (changePct < 0.0) {
-          signal = '비중축소';
-        } else if (changePct >= 0 && changePct <= 10.0) {
-          if (hasBiotechRisk && event.ticker === '475960') {
-            signal = '관찰';
-          } else if (hasCompetitorRisk && event.ticker === '064760' && changePct < 5.0) {
-            signal = '비중축소';
-          } else if (hasCompetitorRisk && event.ticker === '064760') {
-            signal = '보유';
-          } else {
-            signal = '추매검토';
-          }
-        } else {
-          signal = '보유';
-        }
-      } 
-      else if (['어닝쇼크', '유상증자', 'CB / BW', '리콜 / 품질 문제', '소송 / 규제 / 과징금'].includes(type)) {
-        direction = 'negative';
-        level = Math.abs(changePct) > 2 ? 'high' : 'medium';
-
-        const keywords = (event.risk_keywords || '').split(',').map(k => k.trim().toLowerCase());
-        const matchesRiskKeyword = keywords.some(k => k && event.event_title.toLowerCase().includes(k));
-
-        if (matchesRiskKeyword || level === 'high') {
-          signal = changePct < -3.0 ? '매도검토' : '비중축소';
-        } else {
-          signal = '관찰';
-        }
-      } 
-      else if (type === '금리 / 매크로') {
-        direction = changePct < 0 ? 'negative' : 'neutral';
-        level = Math.abs(changePct) > 2.5 ? 'medium' : 'low';
-        signal = direction === 'negative' ? '관찰' : '보유';
-      } 
-      else {
-        const titleLower = event.event_title.toLowerCase();
-        const posKeywords = ['수혜', '상장', '통과', '돌파', '대박', '호황', '서프라이즈', '1조', '로드쇼', '수주', '계약', '인수'];
-        const negKeywords = ['r&d 투자 축소', 'r&d 축소', 'r&d 감소', '지연', '우려', '리스크', '단가 인하', '하락', '둔화', '위기', '소송', '과징금', '규제'];
-
-        const keywords = (event.risk_keywords || '').split(',').map(k => k.trim().toLowerCase());
-        const matchesRiskKeyword = keywords.some(k => k && titleLower.includes(k));
-
-        const matchesPos = posKeywords.some(k => titleLower.includes(k));
-        const matchesNeg = negKeywords.some(k => titleLower.includes(k));
-
-        if (matchesNeg || matchesRiskKeyword) {
-          direction = 'negative';
-          level = Math.abs(changePct) > 2 ? 'high' : 'medium';
-          signal = changePct < -3.0 ? '매도검토' : '비중축소';
-        } else if (matchesPos) {
-          direction = 'positive';
-          level = changePct > 3 ? 'high' : 'medium';
-          
-          const riskKeywordsList = (event.risk_keywords || '').split(',').map(k => k.trim().toLowerCase());
-          const hasCompetitorRisk = riskKeywordsList.some(k => k.includes('경쟁사') || k.includes('특허'));
-          const hasBiotechRisk = riskKeywordsList.some(k => k.includes('바이오') || k.includes('흑자 전환 지연') || k.includes('예산 삭감'));
-
-          if (changePct < 0.0) {
-            signal = '비중축소';
-          } else if (changePct >= 0 && changePct <= 10.0) {
-            if (hasBiotechRisk && event.ticker === '475960') {
-              signal = '관찰';
-            } else if (hasCompetitorRisk && event.ticker === '064760' && changePct < 5.0) {
-              signal = '비중축소';
-            } else if (hasCompetitorRisk && event.ticker === '064760') {
-              signal = '보유';
-            } else {
-              signal = '추매검토';
-            }
-          } else {
-            signal = '보유';
-          }
-        } else {
-          direction = 'neutral';
-          level = 'low';
-          signal = '보유';
+          await updateEvent(db, e.event_id, res.direction, res.level, res.signal, fullReason);
         }
       }
+    } catch (err) {
+      console.warn('[Gemini Evaluator] Batch analysis failed, falling back to simple rules:', err.message);
+      for (const e of aiTargets) await evaluateByRules(db, e);
     }
+  }
 
-    // 4. Update event in DB
-    await db.run(
-      `UPDATE investment_event 
-       SET impact_direction = ?, impact_level = ?, decision_signal = ?, ai_reason = ?, status = 'confirmed' 
-       WHERE event_id = ?`,
-      [direction, level, signal, reason, event.event_id]
-    );
-
-    console.log(`  -> Signal: [${signal}] | Direction: [${direction}] | Level: [${level}] (LLM: ${analyzedByLLM})`);
+  // 4. Update trivial events
+  for (const e of processedEvents) {
+    await updateEvent(db, e.event_id, e.direction, e.level, e.signal, e.reason);
   }
 
   console.log('JaaS Evaluation completed.');
+}
+
+async function updateEvent(db, id, direction, level, signal, reason) {
+  await db.run(
+    `UPDATE investment_event 
+     SET impact_direction = ?, impact_level = ?, decision_signal = ?, ai_reason = ?, status = 'confirmed' 
+     WHERE event_id = ?`,
+    [direction, level, signal, reason, id]
+  );
+}
+
+async function evaluateByRules(db, event) {
+  let direction = 'neutral';
+  let level = 'low';
+  let signal = '보유';
+  let reason = '규칙 기반 엔진에 의해 분석됨 (보수적 접근)';
+
+  const type = event.event_type;
+  const changePct = event.change_pct;
+
+  if (['실적 호조', '수주 / 공급계약', '자사주 / 배당'].includes(type)) {
+    direction = 'positive';
+    level = Math.abs(changePct) > 3 ? 'high' : 'medium';
+    signal = changePct < 0 ? '비중축소' : '추매검토';
+  } else if (['어닝쇼크', '유상증자', 'CB / BW', '리콜'].includes(type)) {
+    direction = 'negative';
+    level = Math.abs(changePct) > 2 ? 'high' : 'medium';
+    signal = changePct < -3.0 ? '매도검토' : '비중축소';
+  }
+  
+  await updateEvent(db, event.event_id, direction, level, signal, reason);
 }

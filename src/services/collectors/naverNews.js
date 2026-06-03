@@ -11,7 +11,7 @@ const NOISE_KEYWORDS = [
   '마감', '상승 출발', '하락 출발', '증시요약', '코스피', '코스닥'
 ];
 
-export async function collectNaverNews() {
+export async function collectNaverNews(userId = null) {
   const clientId = process.env.NAVER_CLIENT_ID;
   const clientSecret = process.env.NAVER_CLIENT_SECRET;
 
@@ -20,7 +20,7 @@ export async function collectNaverNews() {
     return [];
   }
 
-  const db = await getDb();
+  const db = await getDb(userId);
   
   // Get active assets
   const assets = await db.all(

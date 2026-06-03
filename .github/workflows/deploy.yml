@@ -31,6 +31,8 @@ jobs:
           echo "REPORTS_DIR=/tmp/reports" >> .env
           echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
           echo "SLACK_WEBHOOK_URL=${{ secrets.SLACK_WEBHOOK_URL }}" >> .env
+          echo "SLACK_WEBHOOK_WEEKLY_URL=${{ secrets.SLACK_WEBHOOK_WEEKLY_URL }}" >> .env
+          echo "SLACK_WEBHOOK_URGENT_URL=${{ secrets.SLACK_WEBHOOK_URGENT_URL }}" >> .env
           echo "DART_API_KEY=${{ secrets.DART_API_KEY }}" >> .env
           echo "NAVER_CLIENT_ID=${{ secrets.NAVER_CLIENT_ID }}" >> .env
           echo "NAVER_CLIENT_SECRET=${{ secrets.NAVER_CLIENT_SECRET }}" >> .env

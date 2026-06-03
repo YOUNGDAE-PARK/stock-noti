@@ -12,14 +12,25 @@ import { generateDailyReport } from './services/reports/dailyReport.js';
 import { runHourlyAnalysis } from './services/reports/hourlyNoti.js';
 import { startServer } from './services/api.js';
 import { runWeeklyBatch } from './services/weeklyBatch.js';
-import { uploadDbToStorage } from './db/storage_sync.js';
+import { admin, uploadDbToStorage } from './db/storage_sync.js';
 
 dotenv.config();
 
+// Helper to get all active users from Firebase Auth
+async function getAllUsers() {
+  try {
+    const listUsersResult = await admin.auth().listUsers();
+    return listUsersResult.users.map(user => ({ uid: user.uid, email: user.email }));
+  } catch (err) {
+    console.error('[App] Failed to list users from Firebase:', err.message);
+    return [];
+  }
+}
+
 // End of Day (EOD) Bulk Data Collection
-export async function runEndOfDayCollection() {
+export async function runEndOfDayCollection(userId = null) {
   console.log('\n======================================');
-  console.log(`[EOD Collection] Starting market-close bulk download at ${new Date().toLocaleTimeString()}...`);
+  console.log(`[EOD Collection] Starting market-close bulk download for user ${userId || 'global'} at ${new Date().toLocaleTimeString()}...`);
   console.log('======================================');
 
   const todayStr = new Date().toISOString().substring(0, 10);
@@ -27,95 +38,96 @@ export async function runEndOfDayCollection() {
   try {
     // 1. Collect from all sources
     console.log('[EOD] Collecting DART disclosures...');
-    await collectDartDisclosures(todayStr, todayStr);
+    await collectDartDisclosures(todayStr, todayStr, userId);
 
     console.log('[EOD] Collecting KIND risk disclosures...');
-    await collectKindRiskDisclosures();
+    await collectKindRiskDisclosures(userId);
 
     console.log('[EOD] Collecting Naver News...');
-    await collectNaverNews();
+    await collectNaverNews(userId);
 
     console.log('[EOD] Collecting KRX market pricing...');
-    await collectKrxMarketData(todayStr);
+    await collectKrxMarketData(todayStr, userId);
 
     console.log('[EOD] Collecting IR & Corporate Newsrooms...');
-    await collectIrNewsroomData();
+    await collectIrNewsroomData(userId);
 
     // 2. Consolidate (Phase 7)
     console.log('[EOD] Running Event Consolidator...');
-    await consolidateEvents();
+    await consolidateEvents(userId);
 
     // 3. JaaS Judge Evaluation (Phase 8)
     console.log('[EOD] Running Judge as a Service analysis...');
-    await evaluateEvents();
+    await evaluateEvents(userId);
 
     // Sync database file to Firebase Storage
-    await uploadDbToStorage();
+    await uploadDbToStorage(userId);
 
-    console.log('[EOD Collection] Completed successfully. Ready for morning report.');
+    console.log(`[EOD Collection] Completed successfully for user ${userId || 'global'}.`);
   } catch (error) {
-    console.error('[EOD Collection] Failed:', error.message);
+    console.error(`[EOD Collection] Failed for user ${userId || 'global'}:`, error.message);
   }
 }
 
 async function startApp() {
   console.log('Starting Stock-Noti Application...');
   
-  // Verify database connection on bootup
-  try {
-    const db = await getDb();
-    const assets = await db.get('SELECT count(*) as count FROM portfolio_asset');
-    console.log(`Database connected. Found ${assets.count} assets in portfolio.`);
-  } catch (err) {
-    console.error('Failed to connect to database on startup. Ensure src/db/init.js has run.', err.message);
-    process.exit(1);
-  }
-
-  // Start REST Web Server & Seed UI Dictionary
+  // Start REST Web Server
   await startServer();
 
   // --- Cron Schedules Setup ---
 
   // 1. Daily Report Batch: Every day at 08:00 AM
-  // We schedule for 08:00 KST. If timezone is local, this triggers at 8 AM.
   cron.schedule('0 8 * * *', async () => {
-    console.log('[Scheduler] Triggering 8:00 AM Daily Report...');
-    try {
-      await generateDailyReport();
-    } catch (err) {
-      console.error('Failed to generate daily report via cron:', err.message);
+    console.log('[Scheduler] Triggering 8:00 AM Daily Report for all users...');
+    const users = await getAllUsers();
+    for (const user of users) {
+      try {
+        await generateDailyReport(null, user);
+      } catch (err) {
+        console.error(`Failed to generate daily report for user ${user.email}:`, err.message);
+      }
     }
   });
-  console.log('- Registered Cron: 8:00 AM Daily Comprehensive Report (Daily)');
+  console.log('- Registered Cron: 8:00 AM Daily Comprehensive Report (Daily, Multi-user)');
 
   // 2. Hourly Real-time Monitor: Every hour from 09:00 to 16:00, Monday to Friday (trading hours)
   cron.schedule('0 9-16 * * 1-5', async () => {
-    console.log('[Scheduler] Triggering hourly real-time analysis...');
-    try {
-      await runHourlyAnalysis();
-    } catch (err) {
-      console.error('Failed to run hourly monitor via cron:', err.message);
+    console.log('[Scheduler] Triggering hourly real-time analysis for all users...');
+    const users = await getAllUsers();
+    for (const user of users) {
+      try {
+        await runHourlyAnalysis(null, false, user);
+      } catch (err) {
+        console.error(`Failed to run hourly monitor for user ${user.email}:`, err.message);
+      }
     }
   });
-  console.log('- Registered Cron: Hourly short-term warning analysis (Mon-Fri, 09:00 - 16:00)');
+  console.log('- Registered Cron: Hourly short-term warning analysis (Mon-Fri, 09:00 - 16:00, Multi-user)');
 
   // 3. Post-market Bulk Ingestion Batch: Every Monday to Friday at 18:00 (6:00 PM) KST
   cron.schedule('0 18 * * 1-5', async () => {
-    console.log('[Scheduler] Triggering EOD post-market bulk ingestion...');
-    await runEndOfOfDayCollection();
+    console.log('[Scheduler] Triggering EOD post-market bulk ingestion for all users...');
+    const users = await getAllUsers();
+    for (const user of users) {
+      await runEndOfDayCollection(user.uid);
+    }
   });
-  console.log('- Registered Cron: 18:00 EOD Bulk Ingestion and Consolidation (Mon-Fri)');
+  console.log('- Registered Cron: 18:00 EOD Bulk Ingestion and Consolidation (Mon-Fri, Multi-user)');
 
   // 4. Weekly Operations Batch: Every Sunday at 21:00 PM KST
   cron.schedule('0 21 * * 0', async () => {
-    console.log('[Scheduler] Triggering Weekly operations batch (Weekly Rebalancing & AI repair)...');
-    try {
-      await runWeeklyBatch();
-    } catch (err) {
-      console.error('Failed to run weekly batch via cron:', err.message);
+    console.log('[Scheduler] Triggering Weekly operations batch for all users...');
+    const users = await getAllUsers();
+    for (const user of users) {
+      try {
+        await runWeeklyBatch(user);
+      } catch (err) {
+        console.error(`Failed to run weekly batch for user ${user.email}:`, err.message);
+      }
     }
   });
-  console.log('- Registered Cron: 21:00 PM Weekly Operations Batch (Sunday)');
+  console.log('- Registered Cron: 21:00 PM Weekly Operations Batch (Sunday, Multi-user)');
 
   console.log('\nStock-Noti Daemon is active and running in background.');
 }

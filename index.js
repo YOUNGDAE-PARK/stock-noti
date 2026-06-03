@@ -5,6 +5,18 @@ import { runEndOfDayCollection } from './src/app.js';
 import { generateDailyReport } from './src/services/reports/dailyReport.js';
 import { runHourlyAnalysis } from './src/services/reports/hourlyNoti.js';
 import { runWeeklyBatch } from './src/services/weeklyBatch.js';
+import { admin } from './src/db/storage_sync.js';
+
+// Helper to get all active user IDs from Firebase Auth
+async function getAllUserIds() {
+  try {
+    const listUsersResult = await admin.auth().listUsers();
+    return listUsersResult.users.map(user => user.uid);
+  } catch (err) {
+    console.error('[Scheduler] Failed to list users:', err.message);
+    return [];
+  }
+}
 
 // 1. HTTP API Web Server Function
 export const api = onRequest({
@@ -21,12 +33,14 @@ export const dailyReportCron = onSchedule({
   timeoutSeconds: 300,
   memory: '512MiB'
 }, async (event) => {
-  console.log('[Scheduler] Triggering 8:00 AM Daily Report...');
-  try {
-    await generateDailyReport();
-    console.log('[Scheduler] Daily Report completed successfully.');
-  } catch (err) {
-    console.error('[Scheduler] Daily Report failed:', err.message);
+  console.log('[Scheduler] Triggering 8:00 AM Daily Report for all users...');
+  const userIds = await getAllUserIds();
+  for (const uid of userIds) {
+    try {
+      await generateDailyReport(null, uid);
+    } catch (err) {
+      console.error(`Daily Report failed for user ${uid}:`, err.message);
+    }
   }
 });
 
@@ -37,12 +51,14 @@ export const hourlyMonitorCron = onSchedule({
   timeoutSeconds: 300,
   memory: '512MiB'
 }, async (event) => {
-  console.log('[Scheduler] Triggering hourly real-time analysis...');
-  try {
-    await runHourlyAnalysis();
-    console.log('[Scheduler] Hourly Analysis completed.');
-  } catch (err) {
-    console.error('[Scheduler] Hourly Analysis failed:', err.message);
+  console.log('[Scheduler] Triggering hourly real-time analysis for all users...');
+  const userIds = await getAllUserIds();
+  for (const uid of userIds) {
+    try {
+      await runHourlyAnalysis(null, false, uid);
+    } catch (err) {
+      console.error(`Hourly Analysis failed for user ${uid}:`, err.message);
+    }
   }
 });
 
@@ -53,12 +69,14 @@ export const eodCollectionCron = onSchedule({
   timeoutSeconds: 540,
   memory: '512MiB'
 }, async (event) => {
-  console.log('[Scheduler] Triggering EOD post-market bulk ingestion...');
-  try {
-    await runEndOfDayCollection();
-    console.log('[Scheduler] EOD Ingestion and Evaluation completed.');
-  } catch (err) {
-    console.error('[Scheduler] EOD Ingestion failed:', err.message);
+  console.log('[Scheduler] Triggering EOD post-market bulk ingestion for all users...');
+  const userIds = await getAllUserIds();
+  for (const uid of userIds) {
+    try {
+      await runEndOfDayCollection(uid);
+    } catch (err) {
+      console.error(`EOD Ingestion failed for user ${uid}:`, err.message);
+    }
   }
 });
 
@@ -69,11 +87,13 @@ export const weeklyBatchCron = onSchedule({
   timeoutSeconds: 300,
   memory: '512MiB'
 }, async (event) => {
-  console.log('[Scheduler] Triggering Weekly operations batch...');
-  try {
-    await runWeeklyBatch();
-    console.log('[Scheduler] Weekly operations batch completed.');
-  } catch (err) {
-    console.error('[Scheduler] Weekly operations failed:', err.message);
+  console.log('[Scheduler] Triggering Weekly operations batch for all users...');
+  const userIds = await getAllUserIds();
+  for (const uid of userIds) {
+    try {
+      await runWeeklyBatch(uid);
+    } catch (err) {
+      console.error(`Weekly operations failed for user ${uid}:`, err.message);
+    }
   }
 });

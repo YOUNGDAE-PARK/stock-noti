@@ -2,8 +2,8 @@ import axios from 'axios';
 import { getDb } from '../../db/db.js';
 import { calculateRawHash } from '../consolidator.js';
 
-export async function collectIrNewsroomData() {
-  const db = await getDb();
+export async function collectIrNewsroomData(userId = null) {
+  const db = await getDb(userId);
 
   // Get active registries
   const registries = await db.all(

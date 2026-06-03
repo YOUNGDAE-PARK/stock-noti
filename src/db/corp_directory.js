@@ -35,16 +35,38 @@ const fallbackDirectory = [
   { ticker: '379180', corp_name: 'TIGER 미국필라델피아반도체나스닥 (ETF)', corp_code: 'etf_379180' },
   { ticker: '133690', corp_name: 'TIGER 미국나스닥100 (ETF)', corp_code: 'etf_133690' },
   { ticker: '453950', corp_name: 'KODEX 미국S&P500 (ETF)', corp_code: 'etf_453950' },
-  { ticker: '069500', corp_name: 'KODEX 200 (ETF)', corp_code: 'etf_069500' }
+  { ticker: '069500', corp_name: 'KODEX 200 (ETF)', corp_code: 'etf_069500' },
+  { ticker: '445290', corp_name: 'KODEX 로봇액티브 (ETF)', corp_code: 'etf_445290' },
+  { ticker: '0167A0', corp_name: 'SOL AI반도체TOP2플러스 (ETF)', corp_code: 'etf_0167A0' },
+  { ticker: '469150', corp_name: 'ACE AI반도체TOP3+ (ETF)', corp_code: 'etf_469150' },
+  { ticker: '0194T0', corp_name: 'ACE SK하이닉스단일종목레버리지 (ETF)', corp_code: 'etf_0194T0' }
 ];
 
 export async function buildCorpDirectory(force = false) {
   const db = await getDb();
 
-  // Check if directory already has items
+  // 1. Ensure directory table exists
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS corp_code_directory (
+      ticker TEXT PRIMARY KEY,
+      corp_name TEXT NOT NULL,
+      corp_code TEXT NOT NULL
+    )
+  `);
+
+  // 2. Always ensure fallback items (ETFs etc) are present
+  console.log('[Corp Directory] Merging fallback assets...');
+  for (const item of fallbackDirectory) {
+    await db.run(
+      'INSERT OR REPLACE INTO corp_code_directory (ticker, corp_name, corp_code) VALUES (?, ?, ?)',
+      [item.ticker, item.corp_name, item.corp_code]
+    );
+  }
+
+  // 3. Check if we need full DART download
   const countRes = await db.get('SELECT COUNT(*) as count FROM corp_code_directory');
-  if (countRes.count > 0 && !force) {
-    console.log(`[Corp Directory] Already populated with ${countRes.count} tickers. Skipping download.`);
+  if (countRes.count > fallbackDirectory.length && !force) {
+    console.log(`[Corp Directory] Already populated with ${countRes.count} tickers. Skipping DART sync.`);
     return;
   }
 

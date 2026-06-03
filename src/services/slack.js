@@ -1,28 +1,73 @@
 import axios from 'axios';
 import dotenv from 'dotenv';
+import { getDb } from '../db/db.js';
 
 dotenv.config();
 
-const slackWebhookUrl = process.env.SLACK_WEBHOOK_URL ? process.env.SLACK_WEBHOOK_URL.trim() : null;
+const globalWebhooks = {
+  daily: process.env.SLACK_WEBHOOK_URL ? process.env.SLACK_WEBHOOK_URL.trim() : null,
+  weekly: process.env.SLACK_WEBHOOK_WEEKLY_URL ? process.env.SLACK_WEBHOOK_WEEKLY_URL.trim() : null,
+  urgent: process.env.SLACK_WEBHOOK_URGENT_URL ? process.env.SLACK_WEBHOOK_URGENT_URL.trim() : null
+};
+
+/**
+ * Resolves the appropriate Slack Webhook URL for a user and channel type.
+ * Prioritizes user-specific DB setting over global ENV.
+ * @param {string} userId - User ID
+ * @param {string} channelType - 'daily' | 'weekly' | 'urgent'
+ */
+async function getWebhookUrl(userId = null, channelType = 'daily') {
+  if (userId) {
+    try {
+      const db = await getDb(userId);
+      const configKey = channelType === 'daily' ? 'slack_webhook_url' : `slack_webhook_${channelType}_url`;
+      const row = await db.get('SELECT config_value FROM user_config WHERE config_key = ?', [configKey]);
+      
+      if (row && row.config_value) {
+        return row.config_value.trim();
+      }
+
+      // Fallback to default slack_webhook_url if specific one is not found in DB
+      if (channelType !== 'daily') {
+        const defaultRow = await db.get('SELECT config_value FROM user_config WHERE config_key = ?', ['slack_webhook_url']);
+        if (defaultRow && defaultRow.config_value) {
+          return defaultRow.config_value.trim();
+        }
+      }
+    } catch (err) {
+      console.warn(`[Slack] Failed to fetch personal webhook for ${userId}:`, err.message);
+    }
+  }
+  
+  // Fallback to global webhooks. If specific channel is not set, fallback to daily (default).
+  return globalWebhooks[channelType] || globalWebhooks.daily;
+}
 
 /**
  * Sends a raw text message to Slack.
  * @param {string} text - Message text
+ * @param {string} userId - (Optional) User ID to fetch personal webhook
+ * @param {string} userEmail - (Optional) User email for identification
+ * @param {string} channelType - (Optional) 'daily' | 'weekly' | 'urgent'
  */
-export async function sendSlackMessage(text) {
-  if (!slackWebhookUrl || slackWebhookUrl === 'your_slack_webhook_url_here') {
-    console.log('[Slack Notifier] Webhook URL not configured. Skipped sending message.');
+export async function sendSlackMessage(text, userId = null, userEmail = null, channelType = 'daily') {
+  const webhookUrl = await getWebhookUrl(userId, channelType);
+
+  if (!webhookUrl || webhookUrl === 'your_slack_webhook_url_here') {
+    console.log(`[Slack Notifier] Webhook URL not configured for ${userId || 'global'} (${channelType}). Skipped.`);
     return false;
   }
 
+  const prefix = userEmail ? `👤 *[User: ${userEmail}]*\n` : '';
+
   try {
-    await axios.post(slackWebhookUrl, {
-      text: text
-    });
-    console.log('[Slack Notifier] Message successfully sent to Slack.');
+    await axios.post(webhookUrl, {
+      text: prefix + text
+    }, { timeout: 10000 }); // 10s timeout
+    console.log(`[Slack Notifier] Message successfully sent for ${userId || 'global'} to ${channelType} channel.`);
     return true;
   } catch (err) {
-    console.error('[Slack Notifier] Failed to send message to Slack:', err.message);
+    console.error(`[Slack Notifier] Failed to send message to ${channelType}:`, err.message);
     return false;
   }
 }
@@ -136,10 +181,15 @@ function convertMarkdownTables(markdown) {
  * It does NOT support headers (#), standard links [text](url) (Slack uses <url|text>).
  * @param {string} title - The title of the alert
  * @param {string} markdown - The markdown content
+ * @param {string} userId - (Optional) User ID to fetch personal webhook
+ * @param {string} userEmail - (Optional) User email for identification
+ * @param {string} channelType - (Optional) 'daily' | 'weekly' | 'urgent'
  */
-export async function sendSlackMarkdown(title, markdown) {
-  if (!slackWebhookUrl || slackWebhookUrl === 'your_slack_webhook_url_here') {
-    console.log('[Slack Notifier] Webhook URL not configured. Skipped sending report.');
+export async function sendSlackMarkdown(title, markdown, userId = null, userEmail = null, channelType = 'daily') {
+  const webhookUrl = await getWebhookUrl(userId, channelType);
+
+  if (!webhookUrl || webhookUrl === 'your_slack_webhook_url_here') {
+    console.log(`[Slack Notifier] Webhook URL not configured for ${userId || 'global'} (${channelType}). Skipped report.`);
     return false;
   }
 
@@ -147,7 +197,8 @@ export async function sendSlackMarkdown(title, markdown) {
   const processedMarkdown = convertMarkdownTables(markdown);
 
   try {
-    let slackText = `*${title}*\n\n`;
+    const userPrefix = userEmail ? `👤 *[User: ${userEmail}]*\n` : '';
+    let slackText = `${userPrefix}*${title}*\n\n`;
 
     // Simple markdown-to-slack converters
     let lines = processedMarkdown.split('\n');
@@ -199,7 +250,7 @@ export async function sendSlackMarkdown(title, markdown) {
         unfurl_links: false,
         unfurl_media: false
       };
-      await axios.post(slackWebhookUrl, payload);
+      await axios.post(webhookUrl, payload, { timeout: 15000 }); // 15s timeout per chunk
     }
 
     console.log('[Slack Notifier] Markdown report successfully sent to Slack in ' + chunks.length + ' chunks.');

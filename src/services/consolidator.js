@@ -106,8 +106,8 @@ function shareHighValueKeyword(title1, title2) {
 }
 
 // Consolidate new raw source items into investment events
-export async function consolidateEvents() {
-  const db = await getDb();
+export async function consolidateEvents(userId = null) {
+  const db = await getDb(userId);
   
   const newItems = await db.all(
     'SELECT * FROM raw_source_item WHERE status = "new" ORDER BY published_at ASC'

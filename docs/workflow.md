@@ -27,15 +27,15 @@ graph TD
     %% 이벤트 병합 및 분석
     subgraph Consolidation ["이벤트 병합 & 판단 계층"]
         Deduplicator2["2차 이벤트 병합 (유사도 및 1~3일 기간 매핑)"]
-        SignalGen["판단 보조 신호 생성 (보유이유 대조)"]
+        SignalGen["전문 AI 판단 엔진 (지수 대비 성과 & 비중 고려)"]
         Deduplicator2 --> SignalGen
     end
 
     %% 리포트 및 대시보드 출력
-    subgraph Output ["출력 계층 (Output)"]
-        DailyReport["오전 8시 종합 리포트"]
-        ShortTermNoti["단기 속보 알림 (특이사항 발생 시에만)"]
-        WeeklyRebalance["주간 리밸런싱 후보 목록"]
+    subgraph Output ["출력 계층 (Multi-channel Noti)"]
+        DailyReport["오전 8시 종합 리포트 (SLACK_DAILY)"]
+        ShortTermNoti["실시간 긴급 알림 (SLACK_URGENT)"]
+        WeeklyRebalance["주간 운영 리포트 (SLACK_WEEKLY)"]
     end
 
     %% 연결 관계
@@ -64,12 +64,12 @@ graph TD
     end
 
     %% 매 1시간 주기 감시
-    subgraph HourlyLoop ["매 1시간 주기 (단기 실시간 감시)"]
+    subgraph HourlyLoop ["매 1시간 주기 (실시간 긴급 감시)"]
         StartHourly[매 1시간 트리거] --> CollectRealtime[실시간 주가 흐름 & 속보 뉴스 수집]
         CollectRealtime --> AnalyzeThesis[보유 이유 및 리스크 키워드 대조 분석]
         AnalyzeThesis --> Decision{"특이사항 / 위험 감지?"}
         
-        Decision -->|Yes| SendNoti[단기 리포트 및 Noti 알림 발행]
+        Decision -->|Yes| SendNoti["긴급 리포트 발행 (SLACK_URGENT)"]
         Decision -->|No| SkipNoti["알림 생략 (Silent)"]
     end
 

@@ -2,8 +2,8 @@ import axios from 'axios';
 import { getDb } from '../../db/db.js';
 import { calculateRawHash } from '../consolidator.js';
 
-export async function collectKindRiskDisclosures() {
-  const db = await getDb();
+export async function collectKindRiskDisclosures(userId = null) {
+  const db = await getDb(userId);
   
   // Get active assets
   const assets = await db.all(

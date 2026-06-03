@@ -43,7 +43,7 @@
 ## 3. 시스템 아키텍처
 
 ```
-[내 보유자산 목록] (종목/ETF, 비중, 평단, 보유이유, 리스크 키워드)
+[내 보유자산 목록] (종목/ETF, 목표 비중, 현재 비중, 보유이유, 리스크 키워드)
         │
         ▼
 [수집 계층 (Collector)]
@@ -51,25 +51,25 @@
   ├── 기업 IR / 뉴스룸 (RSS 또는 크롤링)
   ├── 네이버 뉴스 API (보유 이유 맞춤형 쿼리)
   ├── KIND RSS (거래정지 등 리스크 공시)
-  └── KRX Open API (종가, 거래량, ETF 정보)
+  └── KRX Open API (종가, 거래량, KOSPI/KOSDAQ 지수)
         │
         ▼
 [정규화 계층 (Normalization)]
-  └── 종목코드 매핑, 날짜 통일, 소스 신뢰도 부여, 중복 URL 제거
+  └── 종목코드 매핑, 날짜 통일, 소스 신뢰도 부여, 초과수익률(Excess Return) 계산
         │
         ▼
-  [이벤트 병합 계층 (Event Consolidation)]
+[이벤트 병합 계층 (Event Consolidation)]
   └── 동일 종목 + 유사 날짜(1~3일) + 동일 이벤트 유형 + 키워드 매핑
         │
         ▼
-[판단 보조 계층 (Decision Engine)]
-  └── 보유이유/리스크 키워드 기반 매도검토/비중축소/보유/추매검토/관찰
+[전문 판단 계층 (Professional AI Engine)]
+  └── Thesis Alignment + Market Relative + Valuation Layer + Portfolio Constraints
         │
         ▼
-[대시보드 / 리포트]
-  ├── 오전 8시 종합 리포트 (전일 수집 데이터 기준)
-  ├── 매 시간 단위 실시간 단기 리포트 (특이사항 감지 시에만 알림)
-  └── 주간 리밸런싱 후보
+[알림 및 리포트 계층 (Multi-channel Delivery)]
+  ├── SLACK_URGENT : 실시간 단기 리포트 (이벤트 감지 시 즉시)
+  ├── SLACK_DAILY  : 오전 8시 일일 종합 리포트
+  └── SLACK_WEEKLY : 주간 운영 및 리밸런싱 제안
 ```
 
 ---
@@ -84,7 +84,9 @@
 | `ticker` | VARCHAR | 종목코드 (예: 005930) |
 | `name` | VARCHAR | 종목명 |
 | `market` | VARCHAR | 소속 시장 (`KOSPI`, `KOSDAQ`, `ETF` 등) |
-| `holding_weight` | DECIMAL | 보유 비중 (%) |
+| `holding_weight` | DECIMAL | **현재 실보유 비중 (%)** |
+| `target_weight` | DECIMAL | **운용 목표 비중 (%)** |
+| `max_weight` | DECIMAL | **최대 허용 비중 (%)** |
 | `avg_price` | DECIMAL | 평균단가 |
 | `holding_qty` | DECIMAL | 보유 수량 |
 | `investment_thesis` | TEXT | **보유 이유 (매우 중요)** |
@@ -137,6 +139,7 @@
 | `impact_level` | VARCHAR | 중요도 등급 (`high`, `medium`, `low`) |
 | `decision_signal` | VARCHAR | AI 판단 보조 신호 (`매도검토`, `비중축소`, `보유`, `추매검토`, `관찰`) |
 | `status` | VARCHAR | 검토 상태 (`confirmed`, `needs_review`, `ignored`) |
+| `ai_reason` | TEXT | **심층 분석 근거 (Pros/Cons/Uncertainty 포함)** |
 
 ### 4.5 `event_source_link` (이벤트-원천 맵핑 테이블)
 | 컬럼명 | 타입 | 설명 |
@@ -173,12 +176,12 @@
   * **텍스트 유사성:** 제목의 유사 단어 및 키워드가 매칭되는 경우
 * 대표 근거는 우선순위(DART $\rightarrow$ IR $\rightarrow$ KIND $\rightarrow$ 네이버 뉴스)에 의해 1개만 선정되고, 나머지는 `event_source_link`로 연결됩니다.
 
-### 5.3 판단 보조 신호 기준
-* **매도 검토:** `portfolio_asset.investment_thesis`(보유 이유)를 직접적으로 위협하는 심각한 악재 발생 시.
-* **비중 축소 검토:** 보유 이유는 훼손되지 않았으나 단기적 리스크(과징금, 소송, 소규모 희석 등)가 증가하여 변동성이 예상될 때.
-* **보유 유지:** 정기 실적이 무난하거나, 기존 시황 범위 내에 수렴하여 특별한 보유 이유의 변화가 없는 경우.
-* **추매 검토:** 긍정적인 실적 혹은 수주 공시가 확인되었으나 시장의 단기 반응(주가 상승폭)이 크지 않아 진입 기회가 주어질 때.
-* **관찰 필요:** 리스크 발생 여부가 불분명하거나 공식 공시나 보도자료를 통한 확인이 필요한 정보일 때.
+### 5.3 전문 AI 판단 엔진 (Professional Logic)
+*   **Thesis Alignment (최우선)**: 발생한 이벤트가 사용자의 **'보유 이유(Investment Thesis)'**를 강화하는지, 혹은 핵심 논리를 훼손하는지를 분석합니다.
+*   **Market-Relative Performance**: 단순히 절대 등락률을 보는 대신, 해당 시장 지수(KOSPI/KOSDAQ) 대비 **'초과 수익률(Excess Return)'**을 통해 시장의 실제 반응을 해석합니다. (예: 지수가 2% 오를 때 종목이 1% 오르면 약세로 판정)
+*   **Portfolio Guardrails**: 현재 비중이 **'목표 비중'**을 초과했거나 **'최대 비중'**에 도달한 경우, 아무리 호재가 발생해도 '추매검토' 대신 **'보유'**를 제안하여 리스크 쏠림을 방지합니다.
+*   **Structured Reasoning**: AI 판단 근거는 단순히 텍스트 나열이 아닌, **[판단 요약], [긍정 요인], [리스크/반대 논리], [불확실성], [향후 체크 포인트]**의 입체적인 구조로 제공합니다.
+*   **Noise Filtering**: 시장 영향이 없고 반복적인 단순 행정 공시는 AI 호출 없이 시스템이 자동 처리(`[시스템 자동처리]` 태그 부여)하여 노이즈를 줄이고 비용을 최적화합니다.
 
 ---
 
@@ -221,9 +224,13 @@
 
 ---
 
-## 8. 판단 신호 생성 규칙
-* AI 또는 룰 기반 필터를 통해, 수집된 이벤트를 포트폴리오 자산(`portfolio_asset`)의 **보유 이유(`investment_thesis`)**와 **감시 키워드(`risk_keywords`)**와 직접 대조하여 보조 신호를 분류합니다.
-* 무조건적인 매수/매도 지시 대신, 투자자 판단을 지원하기 위해 감시 및 보유 타당성에 대한 신호를 유지합니다.
+## 8. 전문 판단 프로세스 및 규칙
+*   **Batch Analysis**: 토큰 효율성을 위해 여러 이벤트를 묶어 한 번의 AI 호출로 처리하며, 펀드매니저 페르소나를 부여하여 분석의 전문성을 확보합니다.
+*   **Decision Prioritization**:
+    1.  보유 이유 훼손 여부 확인 (훼손 시 즉시 '매도검토' 또는 '비중축소')
+    2.  시장 지수 대비 상대 강도 확인 (호재 시에도 지수 대비 약하면 '보유' 또는 '비중축소')
+    3.  포트폴리오 비중 제약 확인 (목표 비중 초과 시 '추매' 제한)
+*   **Final Output**: 사용자에게 행동 지침과 함께 균형 잡힌 시각(Pros & Cons)을 제공하여 독자적인 판단을 지원합니다.
 
 ---
 

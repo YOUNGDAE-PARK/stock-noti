@@ -1,8 +1,8 @@
 import axios from 'axios';
 import { getDb } from '../../db/db.js';
 
-export async function collectKrxMarketData(dateStr) {
-  const db = await getDb();
+export async function collectKrxMarketData(dateStr, userId = null) {
+  const db = await getDb(userId);
   
   // Get active assets
   const assets = await db.all(
@@ -19,16 +19,23 @@ export async function collectKrxMarketData(dateStr) {
   console.log(`KRX Collector: Fetching market data for ${targetDate}...`);
   const collectedSnapshots = [];
 
-  for (const asset of assets) {
+  // Always collect Market Indices
+  const indices = [
+    { ticker: 'KOSPI', name: 'KOSPI 지수', asset_type: 'index' },
+    { ticker: 'KOSDAQ', name: 'KOSDAQ 지수', asset_type: 'index' }
+  ];
+
+  const allTargets = [...indices, ...assets];
+
+  for (const target of allTargets) {
     try {
       // Query Naver Finance chart API for the latest 2 days (to compute change percentage)
-      const url = `https://fchart.stock.naver.com/sise.nhn?symbol=${asset.ticker}&timeframe=day&count=2&requestType=0`;
+      const url = `https://fchart.stock.naver.com/sise.nhn?symbol=${target.ticker}&timeframe=day&count=2&requestType=0`;
       
       const response = await axios.get(url, { responseType: 'text' });
       const xmlContent = response.data;
 
       // Extract item data using Regex
-      // Example: <item data="20260529|83100|84000|82900|83500|18000000"/>
       const itemRegex = /<item data="([^"]+)"/g;
       const candles = [];
       let match;
@@ -38,7 +45,7 @@ export async function collectKrxMarketData(dateStr) {
       }
 
       if (candles.length === 0) {
-        console.warn(`- No market data returned from Naver Finance for ${asset.name} (${asset.ticker})`);
+        console.warn(`- No market data returned from Naver Finance for ${target.name} (${target.ticker})`);
         continue;
       }
 
@@ -51,11 +58,9 @@ export async function collectKrxMarketData(dateStr) {
       const latestDateStr = latestParts[0]; // YYYYMMDD
       const latestDateFormatted = `${latestDateStr.substring(0, 4)}-${latestDateStr.substring(4, 6)}-${latestDateStr.substring(6, 8)}`;
       
-      // If we are looking for a specific historical date (e.g. in simulations), check if latest matches or if we should parse historical list.
-      // For general daily collection, we just use the latest available trading day.
       const closePrice = parseFloat(latestParts[4]);
       const volume = parseInt(latestParts[5], 10);
-      const tradingValue = closePrice * volume; // estimate close * volume
+      const tradingValue = closePrice * volume; 
 
       let changePct = 0;
       if (prevCandleStr) {
@@ -67,13 +72,13 @@ export async function collectKrxMarketData(dateStr) {
 
       const snapshot = {
         date: latestDateFormatted,
-        ticker: asset.ticker,
+        ticker: target.ticker,
         close_price: closePrice,
         change_pct: changePct,
         volume: volume,
         trading_value: tradingValue,
-        market_cap: 0, // Not provided directly, but we can update it or estimate
-        asset_type: asset.asset_type
+        market_cap: 0, 
+        asset_type: target.asset_type
       };
 
       await db.run(
@@ -92,10 +97,10 @@ export async function collectKrxMarketData(dateStr) {
         ]
       );
 
-      console.log(`- Loaded market data for ${asset.name} (${asset.ticker}): Close=${closePrice}, Change=${changePct}%, Vol=${volume}`);
+      console.log(`- Loaded market data for ${target.name} (${target.ticker}): Close=${closePrice}, Change=${changePct}%, Vol=${volume}`);
       collectedSnapshots.push(snapshot);
     } catch (err) {
-      console.error(`- Failed to collect market data for ${asset.name} (${asset.ticker}):`, err.message);
+      console.error(`- Failed to collect market data for ${target.name} (${target.ticker}):`, err.message);
     }
   }
 
