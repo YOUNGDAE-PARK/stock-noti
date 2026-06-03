@@ -11,6 +11,15 @@ import { SettingsController } from './api/SettingsController.js';
 import { AnalysisController } from './api/AnalysisController.js';
 import { buildCorpDirectory } from '../db/corp_directory.js';
 
+// Try to import injected config if available (for production)
+let injectedConfig = {};
+try {
+  const mod = await import('./fb_config.js');
+  injectedConfig = mod.default || {};
+} catch (e) {
+  // Config not injected, will fallback to process.env
+}
+
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -25,12 +34,12 @@ app.use(express.static(path.join(__dirname, '../public')));
 // 1. Config & System
 app.get('/api/config', (req, res) => {
   const config = {
-    apiKey: process.env.FB_CLIENT_API_KEY,
-    authDomain: process.env.FB_CLIENT_AUTH_DOMAIN,
-    projectId: process.env.FB_CLIENT_PROJECT_ID,
-    storageBucket: process.env.FB_CLIENT_STORAGE_BUCKET,
-    messagingSenderId: process.env.FB_CLIENT_MESSAGING_SENDER_ID,
-    appId: process.env.FB_CLIENT_APP_ID
+    apiKey: injectedConfig.apiKey || process.env.FB_CLIENT_API_KEY,
+    authDomain: injectedConfig.authDomain || process.env.FB_CLIENT_AUTH_DOMAIN,
+    projectId: injectedConfig.projectId || process.env.FB_CLIENT_PROJECT_ID,
+    storageBucket: injectedConfig.storageBucket || process.env.FB_CLIENT_STORAGE_BUCKET,
+    messagingSenderId: injectedConfig.messagingSenderId || process.env.FB_CLIENT_MESSAGING_SENDER_ID,
+    appId: injectedConfig.appId || process.env.FB_CLIENT_APP_ID
   };
 
   const diagnostics = {

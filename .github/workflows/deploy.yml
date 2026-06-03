@@ -48,17 +48,10 @@ jobs:
           echo "NAVER_CLIENT_SECRET=$NAVER_CLIENT_SECRET" >> .env
           echo "KRX_API_KEY=$KRX_API_KEY" >> .env
           
-          # Parse Firebase Client Config safely
+          # Create fb_config.js for direct injection (bypasses .gitignore issues)
           if [ ! -z "$CONFIG_JSON" ]; then
-            echo "Parsing FIREBASE_CLIENT_CONFIG_JSON..."
-            echo "FB_CLIENT_API_KEY=$(echo $CONFIG_JSON | jq -r '.apiKey // ""')" >> .env
-            echo "FB_CLIENT_AUTH_DOMAIN=$(echo $CONFIG_JSON | jq -r '.authDomain // ""')" >> .env
-            echo "FB_CLIENT_PROJECT_ID=$(echo $CONFIG_JSON | jq -r '.projectId // ""')" >> .env
-            echo "FB_CLIENT_STORAGE_BUCKET=$(echo $CONFIG_JSON | jq -r '.storageBucket // ""')" >> .env
-            echo "FB_CLIENT_MESSAGING_SENDER_ID=$(echo $CONFIG_JSON | jq -r '.messagingSenderId // ""')" >> .env
-            echo "FB_CLIENT_APP_ID=$(echo $CONFIG_JSON | jq -r '.appId // ""')" >> .env
-          else
-            echo "### ⚠️ WARNING: FIREBASE_CLIENT_CONFIG_JSON is missing!" >> $GITHUB_STEP_SUMMARY
+            echo "Injecting Firebase Config into fb_config.js..."
+            echo "export default $CONFIG_JSON;" > src/services/fb_config.js
           fi
 
           # Verification Log (Masked)
