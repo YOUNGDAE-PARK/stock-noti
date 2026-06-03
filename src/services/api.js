@@ -33,23 +33,14 @@ app.use(express.static(path.join(__dirname, '../public')));
 
 // 1. Config & System
 app.get('/api/config', (req, res) => {
-  const config = {
-    apiKey: injectedConfig.apiKey || process.env.FB_CLIENT_API_KEY,
-    authDomain: injectedConfig.authDomain || process.env.FB_CLIENT_AUTH_DOMAIN,
-    projectId: injectedConfig.projectId || process.env.FB_CLIENT_PROJECT_ID,
-    storageBucket: injectedConfig.storageBucket || process.env.FB_CLIENT_STORAGE_BUCKET,
-    messagingSenderId: injectedConfig.messagingSenderId || process.env.FB_CLIENT_MESSAGING_SENDER_ID,
-    appId: injectedConfig.appId || process.env.FB_CLIENT_APP_ID
-  };
-
-  const diagnostics = {
-    env_keys: Object.keys(process.env).filter(k => k.startsWith('FB_CLIENT_') || k === 'GEMINI_API_KEY'),
-    cwd: process.cwd(),
-    node_env: process.env.NODE_ENV
-  };
-
-  console.log('[API Config] Requested.', diagnostics);
-  res.json({ ...config, _diagnostics: diagnostics });
+  res.json({
+    apiKey: injectedConfig.apiKey || process.env.FB_CLIENT_API_KEY || process.env.FIREBASE_API_KEY,
+    authDomain: injectedConfig.authDomain || process.env.FB_CLIENT_AUTH_DOMAIN || process.env.FIREBASE_AUTH_DOMAIN,
+    projectId: injectedConfig.projectId || process.env.FB_CLIENT_PROJECT_ID || process.env.FIREBASE_PROJECT_ID,
+    storageBucket: injectedConfig.storageBucket || process.env.FB_CLIENT_STORAGE_BUCKET || process.env.FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: injectedConfig.messagingSenderId || process.env.FB_CLIENT_MESSAGING_SENDER_ID || process.env.FIREBASE_MESSAGING_SENDER_ID,
+    appId: injectedConfig.appId || process.env.FB_CLIENT_APP_ID || process.env.FIREBASE_APP_ID
+  });
 });
 
 app.get('/api/schedule', authenticateUser, (req, res) => {

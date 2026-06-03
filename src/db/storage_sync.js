@@ -18,7 +18,9 @@ const projectId = process.env.FB_CLIENT_PROJECT_ID || 'stock-f2ee7';
 if (serviceAccountJson) {
   try {
     let serviceAccount;
-    const trimmedJson = serviceAccountJson.trim();
+    // Strip leading/trailing quotes if they exist from .env parsing
+    const trimmedJson = serviceAccountJson.trim().replace(/^['"]|['"]$/g, '');
+    
     if (trimmedJson.startsWith('{')) {
       serviceAccount = JSON.parse(trimmedJson);
     } else {
