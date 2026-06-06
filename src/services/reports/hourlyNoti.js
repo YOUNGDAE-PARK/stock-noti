@@ -12,8 +12,17 @@ import { getReportsDir } from '../../utils/paths.js';
 /**
  * Hourly analysis task: collects new data, consolidates, judges, and alerts if needed.
  */
-export async function runHourlyAnalysis(dateStr, isSimulation = false, user) {
-  const { uid, email } = user || {};
+export async function runHourlyAnalysis(dateStr, isSimulation = false, userInput) {
+  // Support both Object {uid, email} and string UID (from Cron)
+  let uid, email;
+  if (typeof userInput === 'string') {
+    uid = userInput;
+    email = null;
+  } else if (userInput && typeof userInput === 'object') {
+    uid = userInput.uid;
+    email = userInput.email;
+  }
+
   const targetDate = dateStr || new Date().toISOString().substring(0, 10);
   console.log(`[Hourly Notifier] Starting for user ${email || uid} at ${targetDate}...`);
 
@@ -25,18 +34,20 @@ export async function runHourlyAnalysis(dateStr, isSimulation = false, user) {
     await collectNaverNews(uid);
     await collectKrxMarketData(targetDate, uid);
 
-    // 2. Processing
+    // 2. Processing (LLM Judge updates status to 'confirmed')
     await consolidateEvents(uid);
     await evaluateEvents(uid);
   }
 
-  // 3. Identification of new actionable events
+  // 3. Identification of actionable events that were JUST confirmed
+  // We check for 'confirmed' status and high impact signals
   const newEvents = await db.all(`
     SELECT e.*, a.name as asset_name 
     FROM investment_event e
     JOIN portfolio_asset a ON e.ticker = a.ticker
-    WHERE e.event_date = ? AND e.status = 'needs_review'
+    WHERE e.event_date = ? AND e.status = 'confirmed'
     AND e.decision_signal IN ('매도검토', '비중축소', '추매검토')
+    ORDER BY e.event_id DESC
   `, [targetDate]);
 
   if (newEvents.length === 0) {

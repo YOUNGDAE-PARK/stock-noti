@@ -9,8 +9,17 @@ import { getReportsDir } from '../../utils/paths.js';
  * @param {string} dateStr - Target date (YYYY-MM-DD). Defaults to yesterday.
  * @param {Object} user - User context { uid, email }
  */
-export async function generateDailyReport(dateStr, user) {
-  const { uid, email } = user || {};
+export async function generateDailyReport(dateStr, userInput) {
+  // Support both Object {uid, email} and string UID (from Cron)
+  let uid, email;
+  if (typeof userInput === 'string') {
+    uid = userInput;
+    email = null;
+  } else if (userInput && typeof userInput === 'object') {
+    uid = userInput.uid;
+    email = userInput.email;
+  }
+
   const db = await getDb(uid);
   
   const targetDate = dateStr || getYesterdayDate();
@@ -48,7 +57,7 @@ async function fetchEvents(db, date) {
     SELECT e.*, a.name as asset_name, a.investment_thesis, a.avg_price, a.holding_weight
     FROM investment_event e
     JOIN portfolio_asset a ON e.ticker = a.ticker
-    WHERE e.event_date = ?
+    WHERE e.event_date = ? AND e.status = 'confirmed'
     ORDER BY e.reliability_score DESC
   `, [date]);
 }
