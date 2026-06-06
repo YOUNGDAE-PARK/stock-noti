@@ -68,8 +68,16 @@ jobs:
 
       - name: Deploy to Firebase
         run: |
-          echo "Starting Firebase deployment with verbose logging..."
-          npx firebase-tools deploy --non-interactive --project stock-f2ee7 --debug
+          echo "Starting Firebase deployment..."
+          npx firebase-tools deploy --non-interactive --project stock-f2ee7
+          
+          # Send Slack Notification on success
+          VERSION=$(node -p "require('./package.json').version")
+          if [ ! -z "${{ secrets.SLACK_WEBHOOK_DEPLOY_URL }}" ]; then
+            curl -X POST -H 'Content-type: application/json' \
+              --data "{\"text\":\"🚀 *[Stock-Noti Premium]* 배포 완료 (v$VERSION)\n- 상태: 성공\n- 환경: Production\n- 원인: GitHub Actions push\"}" \
+              ${{ secrets.SLACK_WEBHOOK_DEPLOY_URL }}
+          fi
 
       - name: Push Logs to git branch on failure
         if: failure()
