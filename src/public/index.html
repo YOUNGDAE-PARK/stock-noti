@@ -1210,7 +1210,8 @@
       <div style="display: flex; flex-direction: column; align-items: flex-start;">
         <span id="user-name" style="font-weight: 700;"></span>
         <span id="user-email" style="font-size: 0.75rem; color: rgba(255,255,255,0.6);"></span>
-        <span id="user-uid" style="font-size: 0.65rem; color: rgba(255,255,255,0.4); font-family: monospace;"></span>
+        <span id="app-version" style="font-size: 0.65rem; color: var(--accent-blue); font-weight: 700; background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; display: inline-block; margin-top: 4px;"></span>
+
       </div>
       <button class="btn-logout" onclick="signOut()">로그아웃</button>
     </div>
@@ -1587,6 +1588,11 @@
           throw new Error('Firebase 설정이 백엔드 .env에 등록되어 있지 않습니다.');
         }
 
+        // Set version in UI
+        if (firebaseConfig.version) {
+          document.getElementById('app-version').innerText = `v${firebaseConfig.version}`;
+        }
+
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
         auth = firebase.auth();
@@ -1617,7 +1623,6 @@
             document.getElementById('user-profile').style.display = 'flex';
             document.getElementById('user-name').innerText = user.displayName;
             document.getElementById('user-email').innerText = user.email;
-            document.getElementById('user-uid').innerText = user.uid;
             document.getElementById('user-photo').src = user.photoURL;
 
             // Bootstrap app data

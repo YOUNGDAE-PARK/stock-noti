@@ -10,6 +10,11 @@ import { ReportController } from './api/ReportController.js';
 import { SettingsController } from './api/SettingsController.js';
 import { AnalysisController } from './api/AnalysisController.js';
 import { buildCorpDirectory } from '../db/corp_directory.js';
+import { readFileSync } from 'fs';
+
+// Load version from package.json
+const pkg = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8'));
+const VERSION = pkg.version || '1.0.0';
 
 // Try to import injected config if available (for production)
 let injectedConfig = {};
@@ -34,6 +39,7 @@ app.use(express.static(path.join(__dirname, '../public')));
 // 1. Config & System
 app.get('/api/config', (req, res) => {
   res.json({
+    version: VERSION,
     apiKey: injectedConfig.apiKey || process.env.FB_CLIENT_API_KEY || process.env.FIREBASE_API_KEY,
     authDomain: injectedConfig.authDomain || process.env.FB_CLIENT_AUTH_DOMAIN || process.env.FIREBASE_AUTH_DOMAIN,
     projectId: injectedConfig.projectId || process.env.FB_CLIENT_PROJECT_ID || process.env.FIREBASE_PROJECT_ID,
@@ -136,7 +142,20 @@ export async function recalculatePortfolioWeights(db) {
 
 export async function startServer() {
   await buildCorpDirectory();
+  
+  const deployWebhook = process.env.SLACK_WEBHOOK_DEPLOY_URL;
+  if (deployWebhook) {
+    try {
+      await axios.post(deployWebhook, {
+        text: `🚀 *[Stock-Noti Premium]* 시스템 가동 및 배포 완료 (v${VERSION})\n- 상태: 정상\n- 모드: ${process.env.NODE_ENV || 'production'}`
+      });
+      console.log('[Deploy] Startup notification sent to Slack.');
+    } catch (err) {
+      console.warn('[Deploy] Failed to send startup notification:', err.message);
+    }
+  }
+
   app.listen(PORT, () => {
-    console.log(`🚀 Stock-Noti Server active on port ${PORT}`);
+    console.log(`🚀 Stock-Noti Server active on port ${PORT} (v${VERSION})`);
   });
 }

@@ -47,6 +47,7 @@ jobs:
           echo "NAVER_CLIENT_ID=$NAVER_CLIENT_ID" >> .env
           echo "NAVER_CLIENT_SECRET=$NAVER_CLIENT_SECRET" >> .env
           echo "KRX_API_KEY=$KRX_API_KEY" >> .env
+          echo "SLACK_WEBHOOK_DEPLOY_URL=${{ secrets.SLACK_WEBHOOK_DEPLOY_URL }}" >> .env
           
           # Create fb_config.js for direct injection (bypasses .gitignore issues)
           if [ ! -z "$CONFIG_JSON" ]; then
