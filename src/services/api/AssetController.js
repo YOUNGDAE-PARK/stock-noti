@@ -65,27 +65,31 @@ export class AssetController {
 
   static async addAsset(req, res) {
     const { ticker, name, asset_type, holding_weight, target_weight, max_weight, avg_price, holding_qty, watch_level, investment_thesis, corp_code } = req.body;
-    
+
     if (!ticker || !name || ticker.trim() === '' || name.trim() === '') {
       return res.status(400).json({ success: false, error: 'Ticker and Name are required.' });
     }
 
     try {
       const db = await getDb(req.user.uid, req.user.email);
+
+      const existing = await db.get('SELECT ticker FROM portfolio_asset WHERE ticker = ?', [ticker]);
+      if (existing) {
+        return res.status(409).json({ success: false, error: `이미 포트폴리오에 등록된 종목입니다 (${ticker}). 편집 버튼으로 수정해 주세요.` });
+      }
+
       await db.run(
         `INSERT INTO portfolio_asset (ticker, name, asset_type, market, holding_weight, target_weight, max_weight, avg_price, holding_qty, watch_level, investment_thesis, corp_code)
          VALUES (?, ?, ?, 'KOSPI', ?, ?, ?, ?, ?, ?, ?, ?)`,
         [ticker, name, asset_type || 'stock', holding_weight || 0, target_weight || 0, max_weight || 100, avg_price || 0, holding_qty || 0, watch_level || 'normal', investment_thesis || '', corp_code]
       );
 
-      // Log Delta
       await db.run(
         'INSERT INTO portfolio_delta_log (ticker, asset_name, action_type, old_qty, new_qty, delta_qty) VALUES (?, ?, "ADD", 0, ?, ?)',
         [ticker, name, holding_qty, holding_qty]
       );
 
-      // Recalculate weights immediately
-      await syncPortfolioPrices(db); 
+      await syncPortfolioPrices(db);
       await recalculatePortfolioWeights(db);
 
       await uploadDbToStorage(req.user.uid);
@@ -134,30 +138,28 @@ export class AssetController {
     const { ticker } = req.params;
     try {
       const db = await getDb(req.user.uid, req.user.email);
-      
-      const oldAsset = await db.get('SELECT asset_id, holding_qty, name FROM portfolio_asset WHERE ticker = ?', [ticker]);
-      
-      const result = await db.run('DELETE FROM portfolio_asset WHERE ticker = ?', [ticker]);
 
-      if (result.changes === 0) {
-        console.warn(`[AssetController] Delete attempted for non-existent ticker: ${ticker}`);
-        // If ticker delete failed, try a cleanup of truly empty records as a safety
-        await db.run("DELETE FROM portfolio_asset WHERE ticker = '' OR ticker IS NULL OR name = '' OR name IS NULL");
+      const oldAsset = await db.get('SELECT asset_id, holding_qty, name FROM portfolio_asset WHERE ticker = ?', [ticker]);
+      if (!oldAsset) {
+        return res.status(404).json({ success: false, error: '포트폴리오에서 해당 종목을 찾을 수 없습니다.' });
       }
 
-      // Log Delta
-      if (oldAsset) {
+      await db.run('BEGIN');
+      try {
+        await db.run('DELETE FROM portfolio_asset WHERE ticker = ?', [ticker]);
         await db.run(
           'INSERT INTO portfolio_delta_log (ticker, asset_name, action_type, old_qty, new_qty, delta_qty) VALUES (?, ?, "DELETE", ?, 0, ?)',
           [ticker, oldAsset.name, oldAsset.holding_qty, -oldAsset.holding_qty]
         );
+        await db.run('COMMIT');
+      } catch (txErr) {
+        await db.run('ROLLBACK');
+        throw txErr;
       }
 
-      // Ensure weights are updated
       await recalculatePortfolioWeights(db);
-
       await uploadDbToStorage(req.user.uid);
-      res.json({ success: true, changes: result.changes });
+      res.json({ success: true });
     } catch (err) {
       console.error('[AssetController] deleteAsset error:', err.message);
       res.status(500).json({ success: false, error: err.message });
