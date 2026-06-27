@@ -166,7 +166,7 @@ export async function getDb(userId = null, userEmail = null) {
     console.warn('[DB Migration] investment_event column update failed:', migrationErr.message);
   }
 
-  // --- MIGRATION: CREATE portfolio_delta_log IF MISSING ---
+  // --- MIGRATION: CREATE portfolio_delta_log IF MISSING (no FK — log must survive asset deletion) ---
   await db.exec(`
     CREATE TABLE IF NOT EXISTS portfolio_delta_log (
       log_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -176,10 +176,41 @@ export async function getDb(userId = null, userEmail = null) {
       old_qty REAL,
       new_qty REAL,
       delta_qty REAL,
-      timestamp TEXT DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY(ticker) REFERENCES portfolio_asset(ticker) ON DELETE CASCADE
+      timestamp TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // --- MIGRATION: Remove cascade FK from portfolio_delta_log (existing DBs) ---
+  // The old table had FOREIGN KEY(ticker) → portfolio_asset ON DELETE CASCADE which caused
+  // a FK violation when trying to INSERT a DELETE log entry after the asset was already removed.
+  try {
+    const fkList = await db.all('PRAGMA foreign_key_list(portfolio_delta_log)');
+    const hasTickerFK = fkList.some(fk => fk.from === 'ticker');
+    if (hasTickerFK) {
+      console.log('[DB Migration] Recreating portfolio_delta_log without cascade FK...');
+      await db.run('PRAGMA foreign_keys = OFF');
+      await db.exec(`
+        CREATE TABLE portfolio_delta_log_new (
+          log_id INTEGER PRIMARY KEY AUTOINCREMENT,
+          ticker TEXT NOT NULL,
+          asset_name TEXT,
+          action_type TEXT NOT NULL CHECK(action_type IN ('ADD', 'UPDATE', 'DELETE')),
+          old_qty REAL,
+          new_qty REAL,
+          delta_qty REAL,
+          timestamp TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      await db.exec('INSERT INTO portfolio_delta_log_new SELECT * FROM portfolio_delta_log');
+      await db.exec('DROP TABLE portfolio_delta_log');
+      await db.exec('ALTER TABLE portfolio_delta_log_new RENAME TO portfolio_delta_log');
+      await db.run('PRAGMA foreign_keys = ON');
+      console.log('[DB Migration] portfolio_delta_log FK removed successfully.');
+    }
+  } catch (migrationErr) {
+    console.warn('[DB Migration] portfolio_delta_log FK migration failed:', migrationErr.message);
+    try { await db.run('PRAGMA foreign_keys = ON'); } catch {}
+  }
 
   // Ensure user_config exists (in case schema was initialized before this table was added)
   await db.exec(`
