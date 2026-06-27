@@ -42,12 +42,16 @@ export async function runHourlyAnalysis(dateStr, isSimulation = false, userInput
   // 3. Identification of actionable events that were JUST confirmed
   // We check for 'confirmed' status and high impact signals
   const newEvents = await db.all(`
-    SELECT e.*, a.name as asset_name 
+    SELECT e.*, a.name as asset_name
     FROM investment_event e
     JOIN portfolio_asset a ON e.ticker = a.ticker
     WHERE e.event_date = ? AND e.status = 'confirmed'
     AND e.decision_signal IN ('매도검토', '비중축소', '추매검토')
-    ORDER BY e.event_id DESC
+    AND (
+      e.consensus_score >= 65
+      OR (e.consensus_score IS NULL AND e.impact_level = 'high')
+    )
+    ORDER BY COALESCE(e.consensus_score, 0) DESC, e.event_id DESC
   `, [targetDate]);
 
   if (newEvents.length === 0) {
@@ -81,7 +85,14 @@ function assembleAlert(date, events) {
     const impactEmoji = e.impact_direction === 'positive' ? '🟢' : e.impact_direction === 'negative' ? '🔴' : '⚪';
 
     content += `*${e.asset_name}* | ${e.event_title}\n`;
-    content += `${signalEmoji} *신호: ${e.decision_signal}* (영향: ${impactEmoji} / 중요도: ${e.impact_level})\n`;
+    content += `${signalEmoji} *신호: ${e.decision_signal}* (영향: ${impactEmoji} / 중요도: ${e.impact_level})`;
+    if (e.consensus_score !== null && e.consensus_score !== undefined) {
+      content += ` | 📊 *팀 합의: ${e.consensus_score}/100*`;
+    }
+    content += '\n';
+    if (e.technical_signal) {
+      content += `> 📈 기술적: ${e.technical_signal}\n`;
+    }
     if (e.ai_reason) {
       const quotedReason = e.ai_reason.split('\n').map(line => `> ${line}`).join('\n');
       content += `${quotedReason}\n`;

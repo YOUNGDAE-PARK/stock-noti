@@ -1,5 +1,6 @@
 import { getDb } from '../db/db.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { evaluateWithTeam } from './teamJudge.js';
 
 // Initialize Gemini API from environment variables
 const apiKey = process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.replace(/[\r\n\s]/g, '') : null;
@@ -84,86 +85,46 @@ export async function evaluateEvents(userId = null) {
     }
   }
 
-  // 3. Batch AI Evaluation (Professional Multi-layered Judgment)
+  // 3. Batch AI Evaluation (Team Multi-Agent System)
   if (isGeminiAvailable && aiTargets.length > 0) {
-    try {
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ 
-        model: 'gemini-2.5-flash',
-        generationConfig: { temperature: 0.2 } 
-      });
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.5-flash',
+      generationConfig: { temperature: 0.2 }
+    });
 
-      const chunkSize = 10;
-      for (let i = 0; i < aiTargets.length; i += chunkSize) {
-        const chunk = aiTargets.slice(i, i + chunkSize);
-        
-        const prompt = `
-당신은 베테랑 펀드매니저이자 투자 전략가입니다. 아래 [투자 이벤트 목록]을 분석하여 전문적인 판단 신호와 심층 근거를 도출하십시오.
+    const chunkSize = 10;
+    for (let i = 0; i < aiTargets.length; i += chunkSize) {
+      const chunk = aiTargets.slice(i, i + chunkSize);
+      const chunkNum = Math.floor(i / chunkSize) + 1;
+      console.log(`[Judge] >>> STEP 3-${chunkNum}: 팀 에이전트 분석 시작 (${chunk.length}건)`);
 
-[핵심 판단 지침]
-1. **Investment Thesis Alignment**: 뉴스가 사용자의 '보유이유'를 강화하는지, 아니면 핵심 논리를 훼손하는지 최우선으로 보십시오.
-2. **Relative Performance**: 절대 등락률이 아닌 시장 지수 대비 '초과 수익률(Excess Return)'과 거래량을 기반으로 시장의 진정한 해석을 파악하십시오. (예: 호재에도 지수 대비 약하면 Sell on News 가능성)
-3. **Portfolio Constraints**: 현재 비중이 목표 비중을 초과했거나 최대 비중에 근접했다면, 아무리 좋은 뉴스라도 '추매검토' 대신 '보유' 또는 '비중축소'를 권고하십시오.
-4. **Valuation & Risk**: 리스크 키워드와 연관된 뉴스인 경우 가중치를 두어 분석하고, 밸류에이션 부담이 느껴지는 구간(급등 후 등)인지 고려하십시오.
-5. **Recent Actions Context**: 아래 [최근 포트폴리오 변경 내역]을 참고하여, 사용자의 최근 매수/매도 행보와 일관성 있는 조언을 제공하거나, 최근 행동 이후 발생한 이벤트에 대해 피드백을 주십시오.
-6. **Structural Reasoning**: 단순히 찬성 근거만 나열하지 말고, 반대 논리(Cons)와 현재 알 수 없는 불확실성(Uncertainty)을 반드시 포함하십시오.
+      try {
+        const teamResults = await evaluateWithTeam(db, chunk, marketContext, deltaContext, genAI, model);
 
-[최근 포트폴리오 변경 내역 (최근 3일)]
-${deltaContext || '최근 변경 내역 없음'}
+        if (!teamResults) {
+          console.warn(`[Judge] 팀 에이전트 전체 실패. 규칙 엔진 fallback 적용.`);
+          for (const e of chunk) await evaluateByRules(db, e);
+          continue;
+        }
 
-[투자 이벤트 목록]
-${chunk.map((e, idx) => `
-ID: ${idx}
-- 종목: ${e.asset_name} (${e.ticker}) | 비중: 현재 ${e.holding_weight}% / 목표 ${e.target_weight}% (최대 ${e.max_weight}%)
-- 보유이유: ${e.investment_thesis}
-- 리스크요인: ${e.risk_keywords}
-- 이벤트: [${e.event_type}] ${e.event_title} (출처: ${e.primary_source_type})
-- 시장반응: 종목 ${e.change_pct}% | 지수 ${e.market_change}% | 초과수익 ${e.excess_return.toFixed(2)}% | 거래량 ${e.volume.toLocaleString()}
-`).join('\n---\n')}
-
-반드시 아래 JSON 배열 형식으로만 응답하십시오:
-[
-  {
-    "id": 0,
-    "direction": "positive | negative | neutral",
-    "level": "high | medium | low",
-    "signal": "매도검토 | 비중축소 | 보유 | 추매검토 | 관찰",
-    "thesis_impact": "강화 | 중립 | 훼손",
-    "confidence": 1~5,
-    "summary": "핵심 판단 요약 (1문장)",
-    "pros": ["근거1", "근거2"],
-    "cons": ["반대논리/리스크1"],
-    "uncertainties": ["미확인 사항"],
-    "next_check": "향후 모니터링 포인트"
-  }
-]
-`;
-
-        const result = await model.generateContent(prompt);
-        const responseText = result.response.text().replace(/```json/g, '').replace(/```/g, '').trim();
-        const llmResults = JSON.parse(responseText);
-
-        for (const res of llmResults) {
+        for (const res of teamResults) {
           const e = chunk[res.id];
           if (!e) continue;
-
-          // Format professional reason string
-          const fullReason = `
-[판단 요약] ${res.summary}
-[Thesis 영향] ${res.thesis_impact} (신뢰도: ${res.confidence}/5)
-
-● 긍정 요인: ${res.pros.join(', ')}
-● 리스크 요인: ${res.cons.join(', ')}
-● 불확실성: ${res.uncertainties.join(', ')}
-● 향후 체크: ${res.next_check}
-`.trim();
-
-          await updateEvent(db, e.event_id, res.direction, res.level, res.signal, fullReason);
+          await updateEvent(db, e.event_id, res.direction, res.level, res.signal, res.reason, {
+            technical_signal: res.technical_signal,
+            fundamental_signal: res.fundamental_signal,
+            macro_signal: res.macro_signal,
+            consensus_score: res.consensus_score,
+            team_analysis: res.team_analysis
+          });
         }
+
+        console.log(`[Judge] >>> STEP 3-${chunkNum}: 팀 에이전트 분석 완료`);
+      } catch (err) {
+        console.warn(`[Judge] 청크 ${chunkNum} 실패:`, err.message, '→ fallback 적용');
+        for (const e of chunk) await evaluateByRules(db, e);
       }
-    } catch (err) {
-      console.warn('[Gemini Evaluator] Batch analysis failed, falling back to simple rules:', err.message);
-      for (const e of aiTargets) await evaluateByRules(db, e);
     }
   }
 
@@ -175,12 +136,26 @@ ID: ${idx}
   console.log('JaaS Evaluation completed.');
 }
 
-async function updateEvent(db, id, direction, level, signal, reason) {
+async function updateEvent(db, id, direction, level, signal, reason, extraFields = {}) {
+  const { technical_signal, fundamental_signal, macro_signal, consensus_score, team_analysis } = extraFields;
   await db.run(
-    `UPDATE investment_event 
-     SET impact_direction = ?, impact_level = ?, decision_signal = ?, ai_reason = ?, status = 'confirmed' 
+    `UPDATE investment_event
+     SET impact_direction = ?, impact_level = ?, decision_signal = ?, ai_reason = ?, status = 'confirmed',
+         technical_signal = COALESCE(?, technical_signal),
+         fundamental_signal = COALESCE(?, fundamental_signal),
+         macro_signal = COALESCE(?, macro_signal),
+         consensus_score = COALESCE(?, consensus_score),
+         team_analysis = COALESCE(?, team_analysis)
      WHERE event_id = ?`,
-    [direction, level, signal, reason, id]
+    [
+      direction, level, signal, reason,
+      technical_signal || null,
+      fundamental_signal || null,
+      macro_signal || null,
+      consensus_score ?? null,
+      team_analysis ? JSON.stringify(team_analysis) : null,
+      id
+    ]
   );
 }
 

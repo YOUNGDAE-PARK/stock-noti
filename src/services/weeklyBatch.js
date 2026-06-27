@@ -142,6 +142,49 @@ async function recoverBrokenRegistries(db) {
   return results.filter(r => r !== null);
 }
 
+async function trackSignalAccuracy(db, date) {
+  const pastEvents = await db.all(`
+    SELECT
+      e.event_id, e.ticker, e.event_date, e.decision_signal,
+      e.consensus_score,
+      a.name as asset_name,
+      s1.close_price as price_at_event,
+      s2.close_price as price_5days_later
+    FROM investment_event e
+    JOIN portfolio_asset a ON e.ticker = a.ticker
+    LEFT JOIN market_snapshot_daily s1
+      ON s1.ticker = e.ticker AND s1.date = e.event_date
+    LEFT JOIN market_snapshot_daily s2
+      ON s2.ticker = e.ticker AND s2.date = (
+        SELECT MIN(date) FROM market_snapshot_daily
+        WHERE ticker = e.ticker AND date > date(e.event_date, '+3 days')
+      )
+    WHERE e.event_date BETWEEN date(?, '-12 days') AND date(?, '-7 days')
+    AND e.decision_signal IN ('추매검토', '매도검토', '비중축소')
+    AND e.status = 'confirmed'
+    AND s1.close_price IS NOT NULL
+    AND s2.close_price IS NOT NULL
+  `, [date, date]);
+
+  if (pastEvents.length === 0) return null;
+
+  const results = pastEvents.map(e => {
+    const priceChangePct = (e.price_5days_later - e.price_at_event) / e.price_at_event * 100;
+    const hit = e.decision_signal === '추매검토' ? priceChangePct > 0 : priceChangePct < 0;
+    return { ...e, priceChangePct: parseFloat(priceChangePct.toFixed(2)), hit };
+  });
+
+  const hitCount = results.filter(r => r.hit).length;
+  const accuracyRate = parseFloat((hitCount / results.length * 100).toFixed(1));
+
+  const highConf = results.filter(r => r.consensus_score >= 70);
+  const highConfAccuracy = highConf.length > 0
+    ? parseFloat((highConf.filter(r => r.hit).length / highConf.length * 100).toFixed(1))
+    : null;
+
+  return { results, accuracyRate, hitCount, total: results.length, highConfAccuracy };
+}
+
 async function performWeeklyDeepAnalysis(db, assets, date) {
   const weeklyResults = [];
   let totalEventsAnalyzed = 0;
@@ -220,11 +263,12 @@ ${statsSummary || '특이 이벤트 없음'}
     }
   }
 
-  return { weeklyResults, globalInsight, totalEventsAnalyzed };
+  const accuracyData = await trackSignalAccuracy(db, date);
+  return { weeklyResults, globalInsight, totalEventsAnalyzed, accuracyData };
 }
 
 function generateWeeklyMarkdown(date, recovered, analysis, stats) {
-  const { weeklyResults, globalInsight, totalEventsAnalyzed } = analysis;
+  const { weeklyResults, globalInsight, totalEventsAnalyzed, accuracyData } = analysis;
   
   let report = `📊 *주간 포트폴리오 운영 및 리밸런싱 제안서*\n`;
   report += `*분석 기간: 지난 7일 ~ ${date}*\n\n`;
@@ -248,6 +292,21 @@ function generateWeeklyMarkdown(date, recovered, analysis, stats) {
     const stance = s.strategy === '비중확대' ? '🔵 *비중확대*' : s.strategy === '비중축소' ? '🔴 *비중축소*' : '⚪ 유지';
     report += `• *${s.asset.name}*: 이벤트 ${s.total}건 (추매 ${s.buy}, 축소 ${s.sell}, 관망 ${s.hold}) ➔ ${stance}\n`;
   });
+
+  // 신호 정확도 추적 (검증자 역할)
+  if (accuracyData && accuracyData.total > 0) {
+    report += `\n📊 *신호 정확도 추적 (지난주 검증)*\n`;
+    report += `• 전체 신호 적중률: *${accuracyData.accuracyRate}%* (${accuracyData.hitCount}/${accuracyData.total}건)\n`;
+    if (accuracyData.highConfAccuracy !== null) {
+      report += `• 고신뢰도 신호(팀합의 ≥70) 적중률: *${accuracyData.highConfAccuracy}%*\n`;
+    }
+    const top5 = accuracyData.results.slice(0, 5);
+    top5.forEach(r => {
+      const icon = r.hit ? '✅' : '❌';
+      const scoreStr = r.consensus_score ? ` | 합의점수: ${r.consensus_score}` : '';
+      report += `  ${icon} ${r.asset_name}(${r.ticker}) | ${r.decision_signal} → 5일후 *${r.priceChangePct > 0 ? '+' : ''}${r.priceChangePct}%*${scoreStr}\n`;
+    });
+  }
 
   report += `\n*[시스템 실행 및 데이터 검증 통계]*\n`;
   report += `• 분석 대상: ${stats.assetCount}개 종목\n`;

@@ -145,6 +145,27 @@ export async function getDb(userId = null, userEmail = null) {
     console.warn('[DB Migration] Column update failed:', migrationErr.message);
   }
 
+  // --- MIGRATION: investment_event 팀 에이전트 분석 컬럼 추가 ---
+  try {
+    const ieColumns = await db.all('PRAGMA table_info(investment_event)');
+    const ieColumnNames = ieColumns.map(c => c.name);
+    const newIECols = [
+      { name: 'technical_signal',   def: 'TEXT' },
+      { name: 'fundamental_signal', def: 'TEXT' },
+      { name: 'macro_signal',       def: 'TEXT' },
+      { name: 'consensus_score',    def: 'INTEGER DEFAULT NULL' },
+      { name: 'team_analysis',      def: 'TEXT' },
+    ];
+    for (const col of newIECols) {
+      if (!ieColumnNames.includes(col.name)) {
+        console.log(`[DB Migration] Adding ${col.name} to investment_event...`);
+        await db.run(`ALTER TABLE investment_event ADD COLUMN ${col.name} ${col.def}`);
+      }
+    }
+  } catch (migrationErr) {
+    console.warn('[DB Migration] investment_event column update failed:', migrationErr.message);
+  }
+
   // --- MIGRATION: CREATE portfolio_delta_log IF MISSING ---
   await db.exec(`
     CREATE TABLE IF NOT EXISTS portfolio_delta_log (
